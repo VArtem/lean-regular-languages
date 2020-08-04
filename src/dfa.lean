@@ -1,11 +1,14 @@
 import data.set.basic
 import data.set.finite
-import logic.relation
+import data.finset
 
 namespace dfa
 open set
 
-structure DFA (S : Type) (Q : Type) := -- alphabet
+variables S Q : Type*
+variables fS fQ : fintype S 
+
+structure DFA (Q : Type) := -- alphabet
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → Q) -- transitions
@@ -126,7 +129,7 @@ begin
     {
         rintro ⟨ xl, xm ⟩,
         rw [lang_of_dfa, mem_set_of_eq],
-        have t := @inter_dfa_goes_to S Ql Qm dl dm x dl.start dm.start,
+        have t := inter_dfa_goes_to dl dm dl.start dm.start,
         have tmp : (inter_dfa dl dm).start = (dl.start, dm.start) := rfl,
         rw [dfa_accepts_word, tmp, t],
         rw word_in_lang_iff_dfa_goes_to_term hl at xl,
@@ -135,7 +138,7 @@ begin
     },
     {
         intro xInter,
-        have t := @inter_dfa_goes_to S Ql Qm dl dm x dl.start dm.start,
+        have t := inter_dfa_goes_to dl dm dl.start dm.start,
         dsimp at xInter,
         have tmp : (inter_dfa dl dm).start = (dl.start, dm.start) := rfl,
         rw [tmp, t] at xInter,

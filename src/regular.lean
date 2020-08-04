@@ -2,8 +2,11 @@ import data.set.basic
 import data.set.finite
 import data.list.basic
 
+import languages
+
+open set languages
+
 namespace regular
-open set
 
 inductive regex (S : Type)
 | eps       : regex
@@ -36,7 +39,7 @@ inductive regex_accepts_word {S : Type} : regex S → list S → Prop
 open regex
 open regex_accepts_word
 
-def lang_of_regex {S : Type} (r : regex S) : set (list S) := { w : list S | regex_accepts_word r w }
+@[simp] def lang_of_regex {S : Type} (r : regex S) : set (list S) := { w : list S | regex_accepts_word r w }
 
 def regular_lang {S : Type} (l : set (list S)) := ∃ {r : regex S}, l = lang_of_regex r
 
@@ -47,18 +50,17 @@ begin
     split; finish,
 end
 
-theorem union_is_regular {S : Type} {L M : set (list S)} (hl : regular_lang L) (hm : regular_lang M) : regular_lang (L ∪ M) :=
+theorem union_is_regular {S : Type} {L M : set (list S)} 
+    (hl : regular_lang L) (hm : regular_lang M) : regular_lang (L ∪ M) :=
 begin
     rcases hl with ⟨ rl, pl ⟩,
     rcases hm with ⟨ rm, pm ⟩,
-    unfold regular_lang,
-    use union rl rm,
+    use (union rl rm),
     ext,
     split,
     {
         intro xlm,
-        cases xlm;
-        dsimp [lang_of_regex],
+        cases xlm,
         rw word_in_lang_iff_exists_parse_tree pl at xlm,
         exact union_left_tree xlm,
         rw word_in_lang_iff_exists_parse_tree pm at xlm,
@@ -74,40 +76,55 @@ begin
     },
 end
 
-def concat_lang {S : Type} (L M: set (list S)) := { w : list S | ∃ (left : list S) (right : list S), left ∈ L ∧ right ∈ M ∧ w = left ++ right} 
-
-def power_lang {S : Type} (L : set (list S)) : ℕ → set (list S)
-| 0             := { [] }
-| (nat.succ n)  := concat_lang L (power_lang n)
-
-
-lemma power_lang_1_eq_lang {S : Type} {L : set (list S)} : L = power_lang L 1 :=
+theorem concat_is_regular {S : Type} {L M : set (list S)}
+    (hl : regular_lang L) (hm : regular_lang M) : regular_lang (append_lang L M) :=
 begin
-    ext,
-    split,
+    rcases hl with ⟨ rl, hl ⟩,
+    rcases hm with ⟨ rm, hm ⟩,
+    use (regex.concat rl rm),
+    ext, split,
     {
-        intro xl,
-        dsimp [power_lang, concat_lang],
-        use [x, []],
-        simp [xl],
+        rintro ⟨ left, right, hleft, hright, hx ⟩,
+        change regex_accepts_word (concat rl rm) x,
+        rw hx,
+        rw word_in_lang_iff_exists_parse_tree hl at hleft,
+        rw word_in_lang_iff_exists_parse_tree hm at hright,
+        exact concat_tree hleft hright,
     },
     {
-        rintro xl, 
-        rcases xl with ⟨ lft, rgt, hl, hr, hconcat ⟩,
-        rw [power_lang, mem_singleton_iff] at hr, 
-        rw hr at hconcat,
-        rw list.append_nil at hconcat,
-        rw hconcat, assumption,
+        rintro hx,
+        rcases hx with ⟨ left, right, hleft, hright ⟩,
+        dsimp [append_lang],
+        rw ← word_in_lang_iff_exists_parse_tree hl at hx_a,
+        rw ← word_in_lang_iff_exists_parse_tree hm at hx_a_1,
+        use [hx_l1, hx_l2, hx_a, hx_a_1],
+        refl,
     }
 end
 
-def kleene_star {S : Type} (L : set (list S)) := ⋃₀ {w : set (list S) | ∃ (n : ℕ), w = power_lang L n}
-
-theorem lang_subset_star {S : Type} {L : set (list S)} : L ⊆ kleene_star L :=
+theorem star_is_regular {S : Type} {L M : set (list S)}
+    (hl : regular_lang L) : regular_lang (kleene_star L) :=
 begin
-    apply subset_sUnion_of_mem,
-    use 1,
-    exact power_lang_1_eq_lang,
+    rcases hl with ⟨ rl, hl ⟩,
+    use regex.star rl,
+    apply subset.antisymm,
+    {
+        rintro x ⟨n, hx⟩,
+        induction n with n hyp,
+        {
+            simp only [pow_zero, one_def] at hx,
+            rw mem_singleton_iff at hx,
+            simp only [mem_set_of_eq, lang_of_regex],
+            rw hx,
+            exact star_eps_tree, 
+        },
+        {
+            sorry,
+        },
+    },
+    {
+        sorry,              
+    }
 end
 
 end regular

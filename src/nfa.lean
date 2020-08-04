@@ -8,7 +8,7 @@ open dfa
 
 structure NFA (S : Type) (Q : Type) :=
     (start : Q) -- starting state
-    (term : Q → Prop) -- terminal states
+    (term : set Q) -- terminal states
     (next : Q → S → set Q) -- transitions
 
 def nfa_goes_to {S Q : Type} (nfa : NFA S Q) : Q → list S → set Q
@@ -18,7 +18,7 @@ def nfa_goes_to {S Q : Type} (nfa : NFA S Q) : Q → list S → set Q
 
 
 @[simp] def nfa_accepts_word {S Q : Type} (nfa : NFA S Q) (w : list S) : Prop := 
-    ∃ t : Q, nfa.term t ∧ t ∈ nfa_goes_to nfa nfa.start w
+    ∃ t : Q, t ∈ nfa.term ∧ t ∈ nfa_goes_to nfa nfa.start w
 
 def lang_of_nfa {S Q : Type} (nfa : NFA S Q) :=
     { w : list S | nfa_accepts_word nfa w}
@@ -43,9 +43,15 @@ begin
         rw word_in_lang_iff_dfa_goes_to_term hdfa at xl,
         use dfa_goes_to dfa dfa.start x,
         use xl,
-        sorry,       
+        sorry,
     },
     {
+        intro xl,
+        dsimp [lang_of_nfa] at *,
+        rcases xl with ⟨ t, dfat, nfat ⟩,
+        rw hdfa,
+        dsimp, 
+        
         sorry,
     },
 end

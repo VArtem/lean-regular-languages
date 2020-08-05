@@ -1,6 +1,6 @@
 import data.set.basic
 import data.set.finite
-import dfa
+import automata.dfa
 
 open set dfa
 

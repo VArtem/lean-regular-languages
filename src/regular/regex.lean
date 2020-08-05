@@ -99,15 +99,50 @@ begin
     }
 end
 
-lemma regex_star_into_list {L : set (list S)} {r : regex S} 
-    (hr : L = lang_of_regex r) (w : list S) :
-    regex_accepts_word (regex.star r) w ↔ ∃ l (h : ∀ x, x ∈ l → x ∈ L), w = list.join l :=
+lemma regex_star_into_list {L : set (list S)} {r rs: regex S} 
+    (hr : L = lang_of_regex rs) (w : list S) (hrs : r = rs.star) :
+    regex_accepts_word r w ↔ ∃ l (h : ∀ x, x ∈ l → x ∈ L), w = list.join l :=
 begin
+    subst hr, 
     split,
     {
-        sorry,
+        intro hacc,
+        induction hacc,
+        repeat {contradiction},
+        {
+            use list.nil,
+            split; simp,
+        },
+        {
+            have hrs2 := regex.star.inj hrs,
+            subst hrs2,
+            clear w,
+            rename hacc_l1 left,
+            rename hacc_l2 right,
+            rename hacc_a rleft,
+            rename hacc_a_1 rright,
+            clear hacc_ih_a,
+            rename hacc_ih_a_1 ih,
+            specialize ih hrs,
+            rcases ih with ⟨ l, h, rfl ⟩,
+            use left :: l,
+            split,
+            {
+                rintro x xl,
+                cases xl,
+                dsimp only [lang_of_regex, set.mem_set_of_eq],
+                rw ← xl at rleft,
+                assumption,
+                apply h,
+                exact xl, 
+            },
+            {
+                simp, 
+            }
+        }
     },
     {
+        subst hrs,
         rintro ⟨l, h, rfl⟩,
         induction l with head tail ih,
         {
@@ -115,7 +150,6 @@ begin
         },
         {
             apply star_concat,
-            rw hr at ih h,
             apply h,
             simp only [list.mem_cons_iff, true_or, eq_self_iff_true],
             apply ih,

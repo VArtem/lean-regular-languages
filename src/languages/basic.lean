@@ -2,6 +2,7 @@ import data.set
 import logic.function.iterate
 import algebra.group_power
 import tactic.nth_rewrite
+import data.list.basic
 
 open set
 
@@ -81,7 +82,7 @@ instance : monoid (set (list S)) := {
 -- notation L`^{`n`}` := power L n
 
 
-lemma concat_subset_of_subset {A B C D : set (list S)} : A ⊆ C → B ⊆ D → A * B ⊆ C * D :=
+lemma append_subset_of_subset {A B C D : set (list S)} : A ⊆ C → B ⊆ D → A * B ⊆ C * D :=
 begin
     rintro hAC hBD x ⟨ left, right, hleft, hright, rfl ⟩,
     use [left, right, hAC hleft, hBD hright],
@@ -98,14 +99,22 @@ begin
     simpa only [pow_zero],
 end
 
-lemma lang_subset_star {L : set (list S)} : L ⊆ kleene_star L :=
+
+lemma power_subset_star {L : set (list S)} (n : ℕ) : L^n ⊆ kleene_star L :=
 begin
-    intros x xl,
-    use 1,
-    simpa only [pow_one],
+    rintro x h, 
+    use n,
+    exact h,
 end
 
-lemma power_subset_of_power {A B : set (list S)} {n : ℕ} : A ⊆ B → A^n ⊆ B^n :=
+lemma lang_subset_star {L : set (list S)} : L ⊆ kleene_star L :=
+begin
+    convert power_subset_star 1,
+    simp only [pow_one],  
+end
+
+
+lemma power_subset_of_subset {A B : set (list S)} {n : ℕ} : A ⊆ B → A^n ⊆ B^n :=
 begin
     intro hAB,
     induction n with n hyp,
@@ -114,7 +123,7 @@ begin
     },
     {
         dsimp [pow_succ],
-        apply concat_subset_of_subset; 
+        apply append_subset_of_subset; 
         assumption,
     },
 end
@@ -123,7 +132,7 @@ lemma star_subset_of_subset {A B : set (list S)} : A ⊆ B → kleene_star A ⊆
 begin
     rintro hAB w ⟨ n, ha ⟩,
     use n,
-    exact power_subset_of_power hAB ha,
+    exact power_subset_of_subset hAB ha,
 end
 
 
@@ -136,7 +145,7 @@ begin
     {
         rw pow_succ,
         nth_rewrite 0 ←one_mul A,
-        apply concat_subset_of_subset heps hyp,
+        apply append_subset_of_subset heps hyp,
     }
 end
 
@@ -193,6 +202,76 @@ begin
     use an + bn,
     rw pow_add,
     use [left, right, ah, bh],
+end
+
+
+lemma power_eq_list_join {L : set (list S)} {w : list S} {n : ℕ} : 
+    w ∈ L^n ↔ ∃ l (h : ∀ x, x ∈ l → x ∈ L), w = list.join l ∧ l.length = n :=
+begin
+    split, {
+        rintro hw,
+        induction n with n hyp generalizing w hw,
+        {
+            use list.nil,
+            simpa [list.forall_mem_nil],
+        },
+        {
+            rw pow_succ at hw,
+            rcases hw with ⟨left, right, hleft, hright, rfl⟩,
+            rcases hyp hright with ⟨l, h, rfl, rfl⟩,
+            use left :: l,
+            split,
+            {
+                rintro x ⟨ _ | _ ⟩,
+                exact hleft,
+                apply h, exact a, 
+            },
+            simp only [list.join, list.length, eq_self_iff_true, and_self],
+        }
+    }, 
+    {
+        rintro ⟨l, h, rfl, rfl⟩, 
+        induction l with head tail hyp,
+        {
+            simp only [list.join, list.length, one_def, pow_zero, mem_singleton], 
+        }, 
+        {
+            dsimp only [pow_succ, list.join, list.length], 
+            use [head, tail.join],
+            split,
+            {
+                apply h head,
+                simp only [list.mem_cons_iff, true_or, eq_self_iff_true],
+            },
+            split,
+            {
+                apply hyp,
+                intros x xtail,
+                apply h,
+                simp only [list.mem_cons_iff, list.forall_mem_cons'] at *, 
+                right, exact xtail,
+            },
+            refl,
+        },
+    }
+end
+
+lemma star_eq_list_join {L : set (list S)} {w : list S} : 
+    w ∈ kleene_star L ↔ ∃ l (h : ∀ x, x ∈ l → x ∈ L), w = list.join l :=
+begin
+    split,
+    {
+        rintro ⟨n, hw⟩,
+        rcases power_eq_list_join.1 hw with ⟨l, h, ⟨ rfl, rfl ⟩ ⟩,
+        use [l, h],
+    },
+    {
+        rintro ⟨l, h, rfl⟩,
+        apply power_subset_star (l.length),
+        apply power_eq_list_join.2,
+        use [l, h],
+        simp only [eq_self_iff_true, and_self], 
+    }
 end
 
 end languages

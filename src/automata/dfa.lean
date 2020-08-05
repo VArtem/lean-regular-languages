@@ -5,8 +5,8 @@ import data.finset
 namespace dfa
 open set
 
-variables S Q : Type*
-variables fS fQ : fintype S 
+variables S Q : Type
+-- variables fS fQ : fintype S 
 
 structure DFA (Q : Type) := -- alphabet
     (start : Q) -- starting state
@@ -14,12 +14,12 @@ structure DFA (Q : Type) := -- alphabet
     (next : Q → S → Q) -- transitions
 
 
-def dfa_goes_to {S Q : Type} (aut : DFA S Q) : Q → list S → Q
+@[simp] def dfa_goes_to {S Q : Type} (aut : DFA S Q) : Q → list S → Q
 | q [] := q
 | q (head :: tail) := dfa_goes_to (aut.next q head) tail
 
 
-lemma same_next_same_goes_to 
+lemma eq_next_goes_to 
     {S Q : Type}
     {d1 d2 : DFA S Q}
     (h : d1.next = d2.next)
@@ -65,12 +65,12 @@ begin
     split,
     {
         intro hw,
-        rw @same_next_same_goes_to S Q aut (compl_dfa aut) rfl,
+        rw @eq_next_goes_to S Q aut (compl_dfa aut) rfl,
         finish, 
     },
     {
         intro hw,
-        rw ← @same_next_same_goes_to S Q aut (compl_dfa aut) rfl,
+        rw ← @eq_next_goes_to S Q aut (compl_dfa aut) rfl,
         finish,
     },
 end
@@ -78,9 +78,9 @@ end
 
 theorem compl_is_aut {S : Type} {L : set (list S)} : dfa_lang L → dfa_lang Lᶜ :=
 begin
-    rintro ⟨ Q, ⟨ aut, h ⟩ ⟩,
+    rintro ⟨ Q, ⟨ aut, rfl ⟩ ⟩,
     use [Q, compl_dfa aut],
-    rw [h, lang_of_compl_dfa_is_compl_of_lang aut],
+    rwa lang_of_compl_dfa_is_compl_of_lang,
 end
 
 
@@ -107,12 +107,12 @@ begin
     intro w,
     induction w with head tail hyp,
     {
-        simp [inter_dfa, dfa_goes_to],
+        simp only [dfa_goes_to, forall_2_true_iff, eq_self_iff_true],
     },
     {
         intros ql qm,
         specialize hyp (l.next ql head) (m.next qm head),
-        finish,
+        finish,  
     },
 end
 

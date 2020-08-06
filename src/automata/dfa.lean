@@ -1,77 +1,138 @@
 import data.set.basic
 import data.set.finite
 import data.finset
+import tactic
+
+import automata.lemmas
 
 namespace dfa
-open set
+open set relation list
 
-variables S Q : Type
+variables {S Q : Type}
 -- variables fS fQ : fintype S 
 
-structure DFA (Q : Type) := -- alphabet
+structure DFA (S : Type) (Q : Type) := -- alphabet
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → Q) -- transitions
+    
 
+inductive go (dfa : DFA S Q) : Q → list S → Q → Prop
+| finish : Π {q : Q}, go q [] q
+| step   : Π {head : S} {tail : list S} {q f : Q},
+    go (dfa.next q head) tail f → go q (head::tail) f 
 
-@[simp] def dfa_goes_to {S Q : Type} (aut : DFA S Q) : Q → list S → Q
-| q [] := q
-| q (head :: tail) := dfa_goes_to (aut.next q head) tail
+@[simp] lemma dfa_go_step_iff (dfa : DFA S Q) (q : Q) {head : S} {tail : list S} :
+    go dfa q (head :: tail) = go dfa (dfa.next q head) tail :=
+begin
+    ext, split,
+    { rintro ⟨ _ ⟩, assumption },
+    { exact go.step }, 
+end
+
+lemma dfa_go_exists_unique (dfa : DFA S Q) (a : Q) (l : list S):
+    ∃! {b : Q}, go dfa a l b :=
+begin
+    induction l with head tail hyp generalizing a,
+    {
+        use [a, go.finish],
+        intros y h,
+        cases h,
+        refl,
+    },  
+    {
+        specialize @hyp (dfa.next a head),
+        convert hyp,
+        dsimp,
+        rwa dfa_go_step_iff,        
+    }
+end
+
+lemma dfa_go_unique {dfa : DFA S Q} {a b c : Q} {l : list S}:
+    go dfa a l b → go dfa a l c → b = c :=
+begin
+    rcases dfa_go_exists_unique dfa a l with ⟨d, dgo, h⟩,
+    dsimp at *,
+    intros bgo cgo,
+    replace bgo := h b bgo,
+    replace cgo := h c cgo,
+    finish,     
+end
 
 
 lemma eq_next_goes_to 
     {S Q : Type}
     {d1 d2 : DFA S Q}
     (h : d1.next = d2.next)
-    : ∀ (w : list S) (q : Q), dfa_goes_to d1 q w = dfa_goes_to d2 q w := 
+    {w : list S} {q r : Q}
+    : go d1 q w r ↔ go d2 q w r := 
 begin
-    intro w,
-    induction w with head tail hyp,
+    induction w with head tail hyp generalizing q,
     {
-        dsimp [dfa_goes_to],
-        tauto!,
+        split;
+        { intro h, cases h, exact go.finish }
     },
     {
-        intro q,
-        dsimp [dfa_goes_to],
-        rw h,
-        specialize hyp (d2.next q head),
-        assumption,
+        specialize @hyp (d1.next q head),
+        rw dfa_go_step_iff d1 at *,
+        rw dfa_go_step_iff d2 at *,
+        rwa h at *,
     },
 end
 
 
-@[simp] def dfa_accepts_word {S Q : Type} (aut : DFA S Q) (w : list S) : Prop := 
-    dfa_goes_to aut aut.start w ∈ aut.term
+@[simp] def dfa_accepts_word (dfa : DFA S Q) (w : list S) : Prop := 
+    ∃ {t}, go dfa dfa.start w t ∧ t ∈ dfa.term
 
-@[simp] def lang_of_dfa {S Q : Type} (aut : DFA S Q) : set (list S) := 
-    set_of (dfa_accepts_word aut)
+@[simp] def lang_of_dfa (dfa : DFA S Q) : set (list S) := 
+    set_of (dfa_accepts_word dfa)
 
-def dfa_lang {S : Type} (lang : set (list S)) : Prop := 
-    ∃ {Q : Type} (aut : DFA S Q), lang = lang_of_dfa aut
+def dfa_lang (lang : set (list S)) : Prop := 
+    ∃ {Q : Type} (dfa : DFA S Q), lang = lang_of_dfa dfa
 
-def compl_dfa {S Q : Type} (aut : DFA S Q) : DFA S Q :=
+@[simp] lemma mem_lang_iff_dfa_acc 
+    {S Q : Type} {L : set (list S)} 
+    {dfa : DFA S Q} {w : list S} (autl : L = lang_of_dfa dfa) : w ∈ L ↔ (dfa_accepts_word dfa w) := 
+begin
+    split; finish,
+end
+
+def compl_dfa (dfa : DFA S Q) : DFA S Q :=
 {
-    start := aut.start,
-    term := aut.termᶜ,
-    next := aut.next,
+    start := dfa.start,
+    term := dfa.termᶜ,
+    next := dfa.next,
 }
 
-lemma lang_of_compl_dfa_is_compl_of_lang {S Q : Type} (aut : DFA S Q) : 
-    lang_of_dfa (compl_dfa aut) = (lang_of_dfa aut)ᶜ :=
+lemma lang_of_compl_dfa_is_compl_of_lang (dfa : DFA S Q) : 
+    lang_of_dfa (compl_dfa dfa) = (lang_of_dfa dfa)ᶜ :=
 begin
-    ext w,
-    dsimp,
-    split,
+    apply subset.antisymm,
     {
-        intro hw,
-        rw @eq_next_goes_to S Q aut (compl_dfa aut) rfl,
-        finish, 
+        rw subset_compl_iff_disjoint,
+        rw eq_empty_iff_forall_not_mem,
+        rintro x ⟨⟨t, tgo, tterm⟩, ⟨r, rgo, rterm⟩⟩,
+        rw @eq_next_goes_to S Q (compl_dfa dfa) dfa rfl x (compl_dfa dfa).start t at tgo,
+        suffices h : t = r,
+        finish,
+        apply dfa_go_unique tgo rgo,
     },
     {
-        intro hw,
-        rw ← @eq_next_goes_to S Q aut (compl_dfa aut) rfl,
-        finish,
+        rw compl_subset_iff_union,
+        rw eq_univ_iff_forall,
+        intro x,
+        rcases (dfa_go_exists_unique dfa dfa.start x) with ⟨t, tgo, tuniq⟩,
+        by_cases tterm : t ∈ dfa.term,
+        {
+            left,
+            use [t, tgo, tterm],
+        },
+        {
+            right,
+            use t,
+            rw @eq_next_goes_to S Q (compl_dfa dfa) dfa rfl x (compl_dfa dfa).start,
+            use tgo,
+        }
     },
 end
 
@@ -84,13 +145,6 @@ begin
 end
 
 
-@[simp] lemma word_in_lang_iff_dfa_goes_to_term 
-    {S Q : Type} {L : set (list S)} 
-    {aut : DFA S Q} {w : list S} (autl : L = lang_of_dfa aut) : w ∈ L ↔ (dfa_goes_to aut aut.start w ∈ aut.term) := 
-begin
-    split; finish,
-end
-
 def inter_dfa {S Ql Qm : Type} (l : DFA S Ql) (m : DFA S Qm) : DFA S (Ql × Qm) :=
 {
     start := (l.start, m.start),
@@ -98,21 +152,33 @@ def inter_dfa {S Ql Qm : Type} (l : DFA S Ql) (m : DFA S Qm) : DFA S (Ql × Qm) 
     next := λ st : Ql × Qm, λ c : S, (l.next st.1 c, m.next st.2 c)
 }
 
-lemma inter_dfa_goes_to 
+
+lemma inter_dfa_go 
     {S Ql Qm : Type} 
-    (l : DFA S Ql) (m : DFA S Qm)
-    : ∀ {w : list S} (ql : Ql) (qm : Qm),
-        dfa_goes_to (inter_dfa l m) (ql, qm) w = (dfa_goes_to l ql w, dfa_goes_to m qm w) :=
+    (l : DFA S Ql) (m : DFA S Qm) {ql qm rl rm}
+     : ∀ {w : list S},
+        (go l ql w rl ∧ go m qm w rm) ↔ go (inter_dfa l m) (ql, qm) w (rl, rm):=
 begin
     intro w,
-    induction w with head tail hyp,
+    induction w with head tail hyp generalizing ql qm,
     {
-        simp only [dfa_goes_to, forall_2_true_iff, eq_self_iff_true],
+        split,
+        {
+            rintro ⟨lgo, mgo⟩,
+            cases lgo,
+            cases mgo,
+            apply go.finish, 
+        },
+        {
+            rintro intergo,
+            cases intergo,
+            split; apply go.finish,
+        }
     },
     {
-        intros ql qm,
-        specialize hyp (l.next ql head) (m.next qm head),
-        finish,  
+        specialize @hyp (l.next ql head) (m.next qm head),
+        repeat {rw dfa_go_step_iff at *},
+        convert hyp,
     },
 end
 
@@ -124,29 +190,27 @@ begin
     rcases hl with ⟨ Ql, ⟨ dl, hl ⟩ ⟩,
     rcases hm with ⟨ Qm, ⟨ dm, hm ⟩ ⟩,
     use [Ql × Qm, inter_dfa dl dm],
-    ext,
+    ext word,
     split,
     {
         rintro ⟨ xl, xm ⟩,
-        rw [lang_of_dfa, mem_set_of_eq],
-        have t := inter_dfa_goes_to dl dm dl.start dm.start,
-        have tmp : (inter_dfa dl dm).start = (dl.start, dm.start) := rfl,
-        rw [dfa_accepts_word, tmp, t],
-        rw word_in_lang_iff_dfa_goes_to_term hl at xl,
-        rw word_in_lang_iff_dfa_goes_to_term hm at xm,
-        split; assumption,        
+        rw mem_lang_iff_dfa_acc hl at xl,
+        rw mem_lang_iff_dfa_acc hm at xm,
+        rcases xl with ⟨lt, lgo, lterm⟩,
+        rcases xm with ⟨mt, mgo, mterm⟩,
+        use [(lt, mt)],
+        split,
+        apply (inter_dfa_go dl dm).1,
+        use [lgo, mgo],
+        use [lterm, mterm],
     },
     {
-        intro xInter,
-        have t := inter_dfa_goes_to dl dm dl.start dm.start,
-        dsimp at xInter,
-        have tmp : (inter_dfa dl dm).start = (dl.start, dm.start) := rfl,
-        rw [tmp, t] at xInter,
-        cases xInter,
-        dsimp at xInter_left xInter_right,
-        rw ← word_in_lang_iff_dfa_goes_to_term hl at xInter_left,
-        rw ← word_in_lang_iff_dfa_goes_to_term hm at xInter_right,
-        use [xInter_left, xInter_right], 
+        rintro ⟨ ⟨ lt, mt⟩, igo, ⟨ lterm, mterm⟩ ⟩,
+        have igo := (inter_dfa_go dl dm).2 igo,
+        dsimp only [mem_inter_eq],
+        rw [mem_lang_iff_dfa_acc hl, mem_lang_iff_dfa_acc hm],
+        use [lt, igo.1, lterm],
+        use [mt, igo.2, mterm],
     },
 end
 

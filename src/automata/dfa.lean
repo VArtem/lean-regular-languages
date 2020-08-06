@@ -6,7 +6,7 @@ import tactic
 import automata.lemmas
 
 namespace dfa
-open set relation list
+open set list
 
 variables {S Q : Type}
 -- variables fS fQ : fintype S 
@@ -16,11 +16,21 @@ structure DFA (S : Type) (Q : Type) := -- alphabet
     (term : set Q) -- terminal states
     (next : Q → S → Q) -- transitions
     
-
 inductive go (dfa : DFA S Q) : Q → list S → Q → Prop
 | finish : Π {q : Q}, go q [] q
 | step   : Π {head : S} {tail : list S} {q f : Q},
-    go (dfa.next q head) tail f → go q (head::tail) f 
+    go (dfa.next q head) tail f → go q (head::tail) f
+
+
+@[simp] def dfa_accepts_word (dfa : DFA S Q) (w : list S) : Prop := 
+    ∃ {t}, go dfa dfa.start w t ∧ t ∈ dfa.term
+
+@[simp] def lang_of_dfa (dfa : DFA S Q) : set (list S) := 
+    set_of (dfa_accepts_word dfa)
+
+def dfa_lang (lang : set (list S)) : Prop := 
+    ∃ {Q : Type} (dfa : DFA S Q), lang = lang_of_dfa dfa
+
 
 @[simp] lemma dfa_go_step_iff (dfa : DFA S Q) (q : Q) {head : S} {tail : list S} :
     go dfa q (head :: tail) = go dfa (dfa.next q head) tail :=
@@ -59,6 +69,21 @@ begin
     finish,     
 end
 
+lemma dfa_go_append {dfa : DFA S Q} {a b c : Q} {left right : list S}:
+    go dfa a left b → go dfa b right c → go dfa a (left ++ right) c :=
+begin
+    induction left with head tail hyp generalizing a,
+    {
+        rintro ⟨_⟩ hbc,
+        exact hbc,
+    },
+    {
+        rintro (⟨_⟩ | ⟨head, tail, _, _, hab⟩) hbc,
+        specialize @hyp (dfa.next a head),
+        exact go.step (hyp hab hbc),
+    }
+end
+
 
 lemma eq_next_goes_to 
     {S Q : Type}
@@ -79,16 +104,6 @@ begin
         rwa h at *,
     },
 end
-
-
-@[simp] def dfa_accepts_word (dfa : DFA S Q) (w : list S) : Prop := 
-    ∃ {t}, go dfa dfa.start w t ∧ t ∈ dfa.term
-
-@[simp] def lang_of_dfa (dfa : DFA S Q) : set (list S) := 
-    set_of (dfa_accepts_word dfa)
-
-def dfa_lang (lang : set (list S)) : Prop := 
-    ∃ {Q : Type} (dfa : DFA S Q), lang = lang_of_dfa dfa
 
 @[simp] lemma mem_lang_iff_dfa_acc 
     {S Q : Type} {L : set (list S)} 

@@ -24,8 +24,7 @@ inductive go (dfa : DFA S Q) : Q → list S → Q → Prop
 @[simp] def dfa_accepts_word (dfa : DFA S Q) (w : list S) : Prop := 
     ∃ {t}, go dfa dfa.start w t ∧ t ∈ dfa.term
 
-@[simp] def lang_of_dfa (dfa : DFA S Q) : set (list S) := 
-    set_of (dfa_accepts_word dfa)
+@[simp] def lang_of_dfa (dfa : DFA S Q) := {w | dfa_accepts_word dfa w}
 
 def dfa_lang (lang : set (list S)) : Prop := 
     ∃ {Q : Type} (dfa : DFA S Q), lang = lang_of_dfa dfa

@@ -22,10 +22,10 @@ inductive go (nfa : NFA S Q) : Q → list S → Q → Prop
 @[simp] def nfa_accepts_word (nfa : NFA S Q) (w : list S) : Prop := 
     ∃ {t}, go nfa nfa.start w t ∧ t ∈ nfa.term
 
-@[simp] def lang_of_nfa (nfa : NFA S Q) := {w : list S | nfa_accepts_word nfa w}
+@[simp] def lang_of_nfa (nfa : NFA S Q) := {w | nfa_accepts_word nfa w}
 
 def nfa_lang (lang : set (list S)) : Prop := 
-    ∃ {Q : Type} (aut : NFA S Q), lang = lang_of_nfa aut
+    ∃ {Q : Type} (nfa : NFA S Q), lang = lang_of_nfa nfa
 
 lemma nfa_go_append {nfa : NFA S Q} {a b c : Q} {left right : list S}:
     go nfa a left b → go nfa b right c → go nfa a (left ++ right) c :=
@@ -164,8 +164,7 @@ begin
     rcases hnfa with ⟨Q, n, rfl⟩,
     use [set Q, nfa_to_dfa n],
     ext x,
-    rw [lang_of_dfa, lang_of_nfa, mem_set_of_eq, mem_set_of_eq],
-    rw [dfa_accepts_word, nfa_accepts_word],
+    dsimp,
     have tmp : (nfa_to_dfa n).start = {n.start} := rfl,
     rw tmp, clear tmp,
 

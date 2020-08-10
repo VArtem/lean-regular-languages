@@ -10,19 +10,18 @@ variables {S Q : Type}
 
 structure epsNFA (S : Type) (Q : Type) :=
     (start : Q) -- starting state
-    (term : set Q) -- terminal states
+    (term : Q) -- terminal state (only one!)
     (next : Q → S → set Q) -- transitions
     (eps : Q → set Q) -- eps-transitions
 
 inductive go (enfa : epsNFA S Q) : Q → list S → Q → Prop
-| finish : Π {q : Q}, go q [] q
+| finish {q} : go q [] q
 | step   : Π {head : S} {tail : list S} {q n f : Q} (h : n ∈ enfa.next q head),
     go n tail f → go q (head::tail) f 
 | eps    : Π {tail : list S} {q n f : Q} (h : n ∈ enfa.eps q),
     go n tail f → go q tail f
 
-@[simp] def epsnfa_accepts_word (enfa : epsNFA S Q) (w : list S) : Prop := 
-    ∃ {t}, go enfa enfa.start w t ∧ t ∈ enfa.term
+@[simp] def epsnfa_accepts_word (enfa : epsNFA S Q) (w : list S) : Prop := go enfa enfa.start w enfa.term
 
 def eps_reach (enfa : epsNFA S Q) (q : Q) (r : Q) := go enfa q [] r
 
@@ -80,22 +79,22 @@ end
 
 def epsnfa_to_nfa (enfa : epsNFA S Q) : nfa.NFA S Q := {
     start := enfa.start,
-    term := {x | ∃ t, eps_reach enfa x t ∧ t ∈ enfa.term},
+    term := {x | eps_reach enfa x enfa.term},
     next := λ q c, {y | ∃ x, eps_reach enfa q x ∧ y ∈ enfa.next x c}
 }
 
 lemma epsnfa_to_nfa_accepts_iff_accepts
     (en : epsNFA S Q) {n : nfa.NFA S Q} (w : list S) (st : Q)
-    : n = epsnfa_to_nfa en → ((∃ t : Q, go en st w t ∧ t ∈ en.term) ↔ (∃ t : Q, nfa.go n st w t ∧ t ∈ n.term)) :=
+    : n = epsnfa_to_nfa en → (go en st w en.term ↔ ∃ t : Q, nfa.go n st w t ∧ t ∈ n.term) :=
 begin
     rintro enfa_nfa,
     split, {
-        rintro ⟨en_t, en_go, en_tterm⟩,
+        rintro en_go,
         induction w with head tail hyp generalizing st, {
             use [st, nfa.go.finish],
             rw enfa_nfa,
             dsimp [epsnfa_to_nfa],
-            use [en_t, en_go, en_tterm], 
+            use en_go,
         }, {
             replace en_go := epsnfa_go_exists_cons rfl en_go,
             rcases en_go with ⟨b, c, eps_stb, next_bc, tail_cent⟩,
@@ -114,17 +113,15 @@ begin
         rintro ⟨n_t, n_go, n_term⟩,
         rw enfa_nfa at n_term,
         dsimp [epsnfa_to_nfa] at n_term,
-        rcases n_term with ⟨en_t, en_t_eps, en_t_term⟩,
         induction w with head tail hyp generalizing st, {
-            cases n_go, 
-            use [en_t, en_t_eps, en_t_term],
+            cases n_go,
+            use n_term,
         }, {
             cases n_go,
             specialize hyp n_go_n n_go_a,
-            rcases hyp with ⟨t, t_go, t_term⟩,
             rw [enfa_nfa] at n_go_h, 
             rcases n_go_h with ⟨x, x_go, x_next⟩,
-            use [t, and.intro (epsnfa_go_trans x_go (go.step x_next t_go)) t_term],
+            exact epsnfa_go_trans x_go (go.step x_next hyp),
         }     
     }    
 end
@@ -134,7 +131,7 @@ begin
     rintro ⟨Q, enf, rfl⟩,
     use [Q, epsnfa_to_nfa enf],
     ext x,
-    convert epsnfa_to_nfa_accepts_iff_accepts enf x enf.start rfl,    
+    exact epsnfa_to_nfa_accepts_iff_accepts enf x enf.start rfl,    
 end
 
 end epsnfa

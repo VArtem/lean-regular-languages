@@ -62,8 +62,8 @@ begin
         }
     }, {
         intro goappend,
-        generalize ha : (U.right : Q2 → @U Q1 Q2) a = ua,
-        generalize hb : (U.right : Q2 → @U Q1 Q2) b = ub,
+        generalize ha : (U.right : Q2 → U Q1 Q2) a = ua,
+        generalize hb : (U.right : Q2 → U Q1 Q2) b = ub,
         rw [ha, hb] at goappend,
         induction goappend generalizing a, {
             subst hb,
@@ -79,7 +79,43 @@ begin
 end 
 
 
-theorem epsnfa_union_correct (e1 : epsNFA S Q1) (e2 : epsNFA S Q2):
+lemma epsnfa_append_split {e1 : epsNFA S Q1} {e2 : epsNFA S Q2} {a : Q1} {b : Q2} {w : list S} :
+    go (epsnfa_append e1 e2) (U.left a) w (U.right b) →
+    ∃ {left right : list S}, left ++ right = w ∧ go e1 a left e1.term ∧ go e2 e2.start right b :=
+begin
+    intro goappend,
+    generalize ha : (U.left : Q1 → U Q1 Q2) a = ua,
+    generalize hb : (U.right : Q2 → U Q1 Q2) b = ub,
+    rw [ha, hb] at goappend,
+    induction goappend generalizing a, {
+        subst hb,
+        contradiction,
+    }, {
+        substs ha hb,
+        cases goappend_n,
+        {
+            -- somehow make an induction step
+            specialize @goappend_ih rfl goappend_n rfl, 
+            rcases goappend_ih with ⟨left, right, rfl, goleft, goright⟩,
+            use [goappend_head :: left, right, list.cons_append _ _ _],
+            split, {
+                refine go.step _ goleft,
+                simpa [epsnfa_append] using goappend_h,
+            }, {
+                use goright,
+            }         
+        }, {
+            -- contradiction here
+            exfalso,
+            simpa [epsnfa_append] using goappend_h,
+        }
+    }, {
+        -- both induction base and induction step here
+        sorry,
+    }
+end
+
+theorem epsnfa_append_correct (e1 : epsNFA S Q1) (e2 : epsNFA S Q2):
     lang_of_epsnfa e1 * lang_of_epsnfa e2 = lang_of_epsnfa (epsnfa_append e1 e2) :=
 begin
     apply subset.antisymm, {
@@ -90,7 +126,9 @@ begin
         simp [epsnfa_append], 
         exact epsnfa_append_go_right.1 hright,
     }, {
-        sorry,
+        intros w goappend,
+        rcases epsnfa_append_split goappend with ⟨left, right, rfl, goleft, goright⟩,
+        use [left, right, goleft, goright],
     }
 end
 

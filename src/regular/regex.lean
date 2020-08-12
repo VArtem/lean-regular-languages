@@ -12,6 +12,7 @@ namespace regex
 variable {S : Type}
 
 inductive regex (S : Type)
+| empty     : regex
 | eps       : regex
 | one       : S → regex
 | union     : regex → regex → regex
@@ -48,6 +49,12 @@ def regex_lang (l : set (list S)) := ∃ {r : regex S}, l = lang_of_regex r
     (regR : L = lang_of_regex r) : w ∈ L ↔ regex_accepts_word r w := 
 begin
     split; finish,
+end
+
+theorem regex_empty_is_empty_lang : lang_of_regex (regex.empty : regex S) = ∅ :=
+begin
+    rw set.eq_empty_iff_forall_not_mem,
+    rintro x ⟨_⟩,
 end
 
 theorem regex_eps_is_eps_lang : lang_of_regex (regex.eps : regex S) = { [] } :=

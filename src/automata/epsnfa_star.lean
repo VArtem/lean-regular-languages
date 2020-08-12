@@ -8,7 +8,7 @@ open set epsnfa languages
 
 namespace epsnfa.star
 
-variables {S Q Q1 : Type}
+variables {S Q : Type}
 
 inductive U (Q : Type) : Type
 | start : U
@@ -67,9 +67,8 @@ begin
         }, {
             convert epsnfa_go_trans (epsnfa_star_go_inside hleft) _,
             rw list.append_nil,
-            refine @go.eps _ _ _ _ _ U.start _ _ _,
+            refine go.eps _ go.finish,
             simp [epsnfa_star],
-            exact go.finish,
         }
     }
 end
@@ -117,34 +116,22 @@ begin
             simp,
             rcases hpref with ⟨rfl, rfl⟩ | ⟨qnxt, rfl, qnxt_go⟩,
             simpa [epsnfa_star] using hnxt,
-            split, {
-                convert qnxt_go,
-                simp [epsnfa_star] at hnxt,
-                rw hnxt, 
-            }, {
-                use hlist,
-            }
+            simp only [epsnfa_star, mem_singleton_iff] at hnxt, 
+            rw hnxt at qnxt_go,
+            use [qnxt_go, hlist],
         }, {
             -- inside, continue old one
             use [pref, l],
             simp, 
             rcases hpref with ⟨rfl, rfl⟩ | ⟨qnxt, rfl, qnxt_go⟩, {
-                split, {
-                    by_cases q = e.term,
-                    subst h, exact go.finish,
-                    simpa [epsnfa_star, h] using hnxt,
-                }, {
-                    use hlist,
-                },
+                convert and.intro go.finish hlist,
+                by_cases q = e.term,
+                exact h.symm, 
+                exfalso, simpa [epsnfa_star, h] using hnxt,
             }, {
-                split, {
-                    by_cases q = e.term; {
-                        refine go.eps _ qnxt_go,
-                        simpa [epsnfa_star, h] using hnxt,
-                    }
-                }, {
-                    use hlist,
-                },
+                convert and.intro (go.eps _ qnxt_go) hlist,
+                by_cases q = e.term;
+                simpa [epsnfa_star, h] using hnxt,
             }   
         }
     }
@@ -160,7 +147,6 @@ begin
     rcases hpref with ⟨rfl, hstart⟩ | ⟨qnxt, hstart, qnxt_go⟩, {
         use [hlist, rfl],
     }, {
-        -- impossible case
         exfalso, simpa [epsnfa_star] using hstart,
     }
 end
@@ -171,7 +157,7 @@ begin
     apply subset.antisymm, {
         rintro w hw,
         replace hw := epsnfa_star_list_join_aux rfl hw,
-        exact star_eq_list_join.2 hw, 
+        rwa star_eq_list_join, 
     }, {
         rintro w ⟨n, hw⟩,
         exact epsnfa_star_power rfl hw,
@@ -182,7 +168,7 @@ theorem star_is_epsnfa {L M : set (list S)}: epsnfa_lang L → epsnfa_lang (klee
 begin
     rintro ⟨Ql, enl, langl⟩,
     use [U Ql, epsnfa_star enl],
-    rwa [langl, epsnfa_star_correct],
+    rwa [← langl, epsnfa_star_correct],
 end
 
 end epsnfa.star

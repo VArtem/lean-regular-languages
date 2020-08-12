@@ -225,19 +225,19 @@ begin
 end
 
 theorem epsnfa_append_correct (e1 : epsNFA S Q1) (e2 : epsNFA S Q2):
-    lang_of_epsnfa e1 * lang_of_epsnfa e2 = lang_of_epsnfa (epsnfa_append e1 e2) :=
+    lang_of_epsnfa (epsnfa_append e1 e2) = lang_of_epsnfa e1 * lang_of_epsnfa e2 :=
 begin
     apply subset.antisymm, {
+        intros w goappend,
+        rcases epsnfa_append_split goappend with ⟨left, right, rfl, goleft, goright⟩,
+        use [left, right, goleft, goright],
+    }, {
         rintro _ ⟨left, right, hleft, hright, rfl⟩,
         dsimp at hleft hright,
         apply epsnfa_go_trans (epsnfa_append_go_left.1 hleft),
         refine @go.eps _ _ _ _ _ (U.right e2.start) _ _ _,
         simp [epsnfa_append], 
         exact epsnfa_append_go_right.1 hright,
-    }, {
-        intros w goappend,
-        rcases epsnfa_append_split goappend with ⟨left, right, rfl, goleft, goright⟩,
-        use [left, right, goleft, goright],
     }
 end
 
@@ -245,7 +245,7 @@ theorem append_is_epsnfa {L M : set (list S)}: epsnfa_lang L → epsnfa_lang M �
 begin
     rintro ⟨Ql, enl, langl⟩ ⟨Qm, enm, langm⟩,
     use [U Ql Qm, epsnfa_append enl enm],
-    rw [langl, langm],
+    substs langl langm,
     exact epsnfa_append_correct _ _,
 end
 

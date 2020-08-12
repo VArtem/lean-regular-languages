@@ -28,7 +28,7 @@ def eps_reach (enfa : epsNFA S Q) (q : Q) (r : Q) := go enfa q [] r
 @[simp] def lang_of_epsnfa (enfa : epsNFA S Q) := {w | epsnfa_accepts_word enfa w}
 
 def epsnfa_lang (lang : set (list S)) : Prop := 
-    ∃ {Q : Type} (enfa : epsNFA S Q), lang = lang_of_epsnfa enfa
+    ∃ {Q : Type} (enfa : epsNFA S Q), lang_of_epsnfa enfa = lang
 
 lemma epsnfa_go_trans {enfa : epsNFA S Q} {a b c : Q} {left right : list S}:
     go enfa a left b → go enfa b right c → go enfa a (left ++ right) c :=
@@ -133,5 +133,7 @@ begin
     ext x,
     exact epsnfa_to_nfa_accepts_iff_accepts enf x enf.start rfl,    
 end
+
+theorem epsnfa_to_dfa_eq {L : set (list S)} : epsnfa_lang L → dfa.dfa_lang L := nfa.nfa_to_dfa_eq ∘ epsnfa_to_nfa_eq
 
 end epsnfa

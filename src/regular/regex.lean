@@ -1,8 +1,9 @@
 import data.set.basic
 import data.set.finite
 import data.list.basic
-
+import tactic
 import languages.basic
+import languages.star
 
 open languages
 
@@ -49,40 +50,53 @@ begin
     split; finish,
 end
 
-theorem union_is_regular {L M : set (list S)} 
-    (hl : regex_lang L) (hm : regex_lang M) : regex_lang (L ∪ M) :=
+theorem regex_eps_is_eps_lang : lang_of_regex (regex.eps : regex S) = { [] } :=
 begin
-    rcases hl with ⟨ rl, pl ⟩,
-    rcases hm with ⟨ rm, pm ⟩,
-    use regex.union rl rm,
-    apply set.subset.antisymm, {
-        rintro x ⟨_⟩,
-        apply union_left, rwa ←mem_lang_iff_accepts pl,
-        apply union_right, rwa ←mem_lang_iff_accepts pm,
+    ext x, split, {
+        rintro ⟨_⟩,
+        simp only [set.mem_singleton], 
     }, {
-        rintro x ⟨_⟩,
-        left, rwa mem_lang_iff_accepts pl, 
-        right, rwa mem_lang_iff_accepts pm, 
-    },
+        intro xnil, 
+        convert regex_accepts_word.eps,
+    }
 end
 
-theorem append_is_regular {L M : set (list S)}
-    (hl : regex_lang L) (hm : regex_lang M) : regex_lang (append_lang L M) :=
+theorem regex_one_is_single_lang {ch : S} : lang_of_regex (regex.one ch) = { [ch] } :=
 begin
-    rcases hl with ⟨ rl, hl ⟩,
-    rcases hm with ⟨ rm, hm ⟩,
-    use regex.append rl rm,
-    apply set.subset.antisymm, {
-        rintro _ ⟨ left, right, hleft, hright, rfl ⟩,
-        rw mem_lang_iff_accepts hl at hleft,
-        rw mem_lang_iff_accepts hm at hright,
-        exact append hleft hright, 
+    ext x, split, {
+        rintro ⟨_⟩,
+        simp only [set.mem_singleton], 
     }, {
+        intro xone, 
+        convert regex_accepts_word.one,
+    }
+end
+
+theorem regex_union_is_lang_union {rl rm : regex S}
+    : lang_of_regex (regex.union rl rm) = lang_of_regex rl ∪ lang_of_regex rm :=
+begin
+    apply set.subset.antisymm, {
+        rintro x ⟨_⟩,
+        left, assumption,
+        right, assumption
+    }, {
+        rintro x ⟨_⟩,
+        exact regex_accepts_word.union_left a,
+        exact regex_accepts_word.union_right a,
+    }, 
+end
+
+theorem regex_append_is_lang_append {rl rm : regex S}
+    : lang_of_regex (regex.append rl rm) = lang_of_regex rl * lang_of_regex rm :=
+begin
+    apply set.subset.antisymm, {
+
         rintro x hx,
         rcases hx with _ | _ | ⟨ left, right, _, _, hleft, hright ⟩ | _ | _ | _ | _, -- fun with seven cases
-        rw ← mem_lang_iff_accepts hl at hleft,
-        rw ← mem_lang_iff_accepts hm at hright,
-        use [left, right, hleft, hright, rfl],
+        use [left, right, hleft, hright, rfl], 
+    }, {
+        rintro _ ⟨ left, right, hleft, hright, rfl ⟩,
+        exact regex_accepts_word.append hleft hright,
     }
 end
 
@@ -91,16 +105,13 @@ lemma regex_star_iff_list_join {L : set (list S)} {r rs: regex S}
     regex_accepts_word r w ↔ ∃ l (h : ∀ x, x ∈ l → x ∈ L), w = list.join l :=
 begin
     subst hr, 
-    split,
-    {
+    split, {
         intro regex_accepts,
         induction regex_accepts with _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ left right rleft rright ih_left ih_right,
-        repeat {contradiction},
-        {
+        repeat {contradiction}, {
             use list.nil,
             split; simp,
-        },
-        {
+        }, {
             have hrs2 := regex.star.inj hrs,
             subst hrs2,
             clear w ih_left hrs,
@@ -114,14 +125,13 @@ begin
                 simp only [list.join], 
             }
         }
-    },
-    {
+    }, {
         subst hrs,
         rintro ⟨l, h, rfl⟩,
         induction l with head tail ih, {
-            use star_eps, 
+            use regex_accepts_word.star_eps, 
         }, {
-            apply star_append,
+            apply regex_accepts_word.star_append,
             apply h,
             simp only [list.mem_cons_iff, true_or, eq_self_iff_true],
             apply ih,
@@ -132,30 +142,26 @@ begin
     },
 end
 
-theorem star_is_regular {L M : set (list S)}
-    (hl : regex_lang L) : regex_lang (kleene_star L) :=
+theorem regex_star_is_kleene_star {rl : regex S}
+    : lang_of_regex rl.star = kleene_star (lang_of_regex rl) :=
 begin
-    rcases hl with ⟨ rl, hl ⟩,
-    use regex.star rl,
     apply set.subset.antisymm, {
-        suffices hyp : ∀ n, L^n ⊆ lang_of_regex rl.star, 
-        {
+        rintro x hx,
+        rw [star_eq_list_join],
+        exact (regex_star_iff_list_join rfl x rfl).1 hx,
+    }, {
+        suffices hyp : ∀ n, (lang_of_regex rl)^n ⊆ lang_of_regex rl.star, {
             rintro x ⟨ n, hx ⟩,
             exact hyp n hx,
         },
         intro n,
         induction n with n hyp, {
-            simp [star_eps], 
+            simp [regex_accepts_word.star_eps], 
         }, {
             rw pow_succ,
             rintro _ ⟨left, right, hleft, hright, rfl⟩,
-            rw mem_lang_iff_accepts hl at hleft,
-            exact star_append hleft (hyp hright),
+            exact regex_accepts_word.star_append hleft (hyp hright),
         },
-    }, {
-        rintro x hx,
-        rw [star_eq_list_join, ←regex_star_iff_list_join],
-        exacts [hx, hl, rfl], 
     }
 end
 

@@ -2,10 +2,11 @@ import data.set.basic
 import data.set.finite
 import automata.epsnfa
 import languages.basic
+import tactic
 
 open set epsnfa languages
 
-namespace epsnfa
+namespace epsnfa.append
 
 variables {S Q Q1 Q2 : Type}
 
@@ -32,14 +33,78 @@ def epsnfa_append (e1 : epsNFA S Q1) (e2 : epsNFA S Q2) : epsNFA S (U Q1 Q2) := 
     end
 }
 
+lemma epsnfa_append_no_right_left {e1 : epsNFA S Q1} {e2 : epsNFA S Q2} {a : Q2} {b : Q1} {w : list S} 
+    : ¬ go (epsnfa_append e1 e2) (U.right a) w (U.left b) :=
+begin
+    intro gorl,
+    generalize ha : (U.right : Q2 → U Q1 Q2) a = ua,
+    generalize hb : (U.left : Q1 → U Q1 Q2) b = ub,
+    rw [ha, hb] at gorl,
+    induction gorl generalizing a, {
+        -- base case
+        subst hb,
+        contradiction,
+    },
+    all_goals { -- works for both `step` and `eps` cases
+        substs ha hb,
+        cases gorl_n, {
+            simpa [epsnfa_append] using gorl_h,
+        }, {
+            exact @gorl_ih rfl gorl_n rfl,
+        }
+    },
+end
+
 lemma epsnfa_append_go_left {e1 : epsNFA S Q1} {e2 : epsNFA S Q2} 
     {a b : Q1} {w : list S} 
     :  go e1 a w b ↔ go (epsnfa_append e1 e2) (U.left a) w (U.left b) :=
 begin
     split, {
-        sorry,
+        intro goleft,
+        induction goleft, {
+            exact go.finish,
+        }, {
+            refine go.step _ goleft_ih,
+            dsimp [epsnfa_append],
+            simpa only [mem_image, exists_eq_right], 
+        }, {
+            refine go.eps _ goleft_ih,
+            dsimp [epsnfa_append],
+            by_cases goleft_q = e1.term;
+            simpa [h] using goleft_h,
+        }
     }, {
-        sorry,
+        intro goappend,
+        generalize ha : (U.left : Q1 → U Q1 Q2) a = ua,
+        generalize hb : (U.left : Q1 → U Q1 Q2) b = ub,
+        rw [ha, hb] at goappend,
+        induction goappend generalizing a, {
+            subst hb,
+            injection ha with ha,
+            subst ha,
+            exact go.finish,
+        }, {
+            substs ha hb,
+            cases goappend_n, {
+                -- contradiction here,
+                refine go.step _ (@goappend_ih rfl goappend_n rfl),
+                simpa [epsnfa_append] using goappend_h,
+            }, {
+                exfalso,
+                simpa [epsnfa_append] using goappend_h,
+            }
+        }, {
+            substs ha hb,
+            cases goappend_n, {
+                refine go.eps _ (@goappend_ih rfl goappend_n rfl),
+                by_cases a = e1.term;
+                simpa [epsnfa_append, h] using goappend_h,
+            }, {
+                -- need to prove there's no path from right to left
+                exfalso,
+                exact epsnfa_append_no_right_left goappend_a,
+            }
+        }
     }
 end 
 
@@ -71,9 +136,24 @@ begin
             subst ha,
             exact go.finish,
         }, {
-            sorry,
+            substs ha hb,
+            cases goappend_n, {
+                -- contradiction here,
+                exfalso,
+                simpa [epsnfa_append] using goappend_h,
+            }, {
+                refine go.step _ (@goappend_ih rfl goappend_n rfl),
+                simpa [epsnfa_append] using goappend_h,
+            }
         }, {
-            sorry,
+            substs ha hb,
+            cases goappend_n, {
+                exfalso,
+                simpa [epsnfa_append] using goappend_h,
+            }, {
+                refine go.eps _ (@goappend_ih rfl goappend_n rfl),
+                simpa [epsnfa_append] using goappend_h,
+            }
         }
     }
 end 
@@ -111,7 +191,36 @@ begin
         }
     }, {
         -- both induction base and induction step here
-        sorry,
+        substs ha hb,
+        cases goappend_n, {
+            -- next state in left part, only apply induction
+            specialize @goappend_ih rfl goappend_n rfl,
+            rcases goappend_ih with ⟨left, right, rfl, goleft, goright⟩,
+            use [left, right, rfl],
+            split, {
+                refine go.eps _ goleft,
+                simp [epsnfa_append] at goappend_h,
+                by_cases a = e1.term;
+                simpa [h] using goappend_h,
+            }, {
+                exact goright,                
+            }
+        }, {
+            -- prev in left, next in right, induction base
+            use [[], goappend_tail, rfl],
+            by_cases a = e1.term, {
+                -- good case, induction base, no contradiction
+                subst h, 
+                use go.finish,
+                simp [epsnfa_append] at goappend_h,
+                subst goappend_h,
+                exact epsnfa_append_go_right.2 goappend_a,
+            }, {
+                -- contradiction
+                exfalso,
+                simpa [h, epsnfa_append] using goappend_h, 
+            }
+        }
     }
 end
 
@@ -132,4 +241,12 @@ begin
     }
 end
 
-end epsnfa
+theorem append_is_epsnfa {L M : set (list S)}: epsnfa_lang L → epsnfa_lang M → epsnfa_lang (L * M) :=
+begin
+    rintro ⟨Ql, enl, langl⟩ ⟨Qm, enm, langm⟩,
+    use [U Ql Qm, epsnfa_append enl enm],
+    rw [langl, langm],
+    exact epsnfa_append_correct _ _,
+end
+
+end epsnfa.append

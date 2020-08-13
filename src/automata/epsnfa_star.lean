@@ -164,7 +164,7 @@ begin
     }
 end
 
-theorem star_is_epsnfa {L M : set (list S)}: epsnfa_lang L → epsnfa_lang (kleene_star L) :=
+theorem star_is_epsnfa {L : set (list S)}: epsnfa_lang L → epsnfa_lang (kleene_star L) :=
 begin
     rintro ⟨Ql, enl, langl⟩,
     use [U Ql, epsnfa_star enl],

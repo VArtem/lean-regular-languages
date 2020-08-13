@@ -33,14 +33,12 @@ begin
     }, {
         rw regex_append_is_lang_append,
         apply epsnfa_to_dfa_eq,
-        refine append.append_is_epsnfa _ _;
-        -- assumption,
-        sorry,
+        refine append.append_is_epsnfa (dfa_to_epsnfa_eq _) (dfa_to_epsnfa_eq _ );
+        assumption,
     }, {
         rw regex_star_is_kleene_star,
         apply epsnfa_to_dfa_eq,
-        -- convert star.star_is_epsnfa r_ih,
-        sorry, 
+        refine star.star_is_epsnfa (dfa_to_epsnfa_eq r_ih), 
     }
 end
 

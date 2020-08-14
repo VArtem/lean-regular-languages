@@ -2,14 +2,12 @@ import data.set.basic
 import data.fintype.basic
 import tactic
 
-import automata.lemmas
-
 namespace dfa
 open set list
 
-variables {S Q : Type} [fintype Q]
+variables {S Q : Type} [fintype S] [fintype Q]
 
-structure DFA (S : Type) (Q : Type) [fintype Q] :=
+structure DFA (S : Type) (Q : Type) [fintype S] [fintype Q] :=
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → Q) -- transitions

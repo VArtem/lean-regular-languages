@@ -6,7 +6,7 @@ open set
 
 namespace epsnfa
 
-variables {S Q : Type} [fintype Q]
+variables {S Q : Type} [fintype S] [fintype Q]
 
 structure epsNFA (S : Type) (Q : Type) [fintype Q] :=
     (start : Q) -- starting state
@@ -143,6 +143,7 @@ end epsnfa_to_nfa
 
 section nfa_to_epsnfa
 
+-- @[derive fintype]
 inductive U (Q : Type) : Type
 | inside : Q → U
 | finish : U

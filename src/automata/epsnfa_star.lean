@@ -8,9 +8,9 @@ open set epsnfa languages
 
 namespace epsnfa.star
 
-variables {S Q : Type} [fintype Q]
+variables {S Q : Type} [fintype S] [fintype Q]
 
-@[derive decidable_eq]
+-- @[derive fintype]
 inductive U (Q : Type) [fintype Q] : Type
 | start : U
 | inside (q : Q) : U
@@ -68,7 +68,7 @@ begin
         rintro w ⟨left, right, hleft, hright, rfl⟩,
         replace hright := n_ih hright,
         refine epsnfa_go_trans _ hright,
-        refine @go.eps _ _ _ _ _ _ (U.inside e.start) _ _ _, {
+        refine @go.eps _ _ _ _ _ _ _ (U.inside e.start) _ _ _, {
             simp [epsnfa_star],
         }, {
             convert epsnfa_go_trans (epsnfa_star_go_inside hleft) _,
@@ -130,9 +130,9 @@ begin
             use [pref, l],
             simp, 
             rcases hpref with ⟨rfl, rfl⟩ | ⟨qnxt, rfl, qnxt_go⟩, {
-                convert and.intro go.finish hlist,
                 by_cases q = e.term,
-                exact h.symm, 
+                subst h,
+                use [go.finish, hlist], 
                 exfalso, simpa [epsnfa_star, h] using hnxt,
             }, {
                 convert and.intro (go.eps _ qnxt_go) hlist,

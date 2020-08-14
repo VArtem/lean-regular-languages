@@ -8,8 +8,9 @@ open set epsnfa languages
 
 namespace epsnfa.triv
 
-variables {S Q : Type}
+variables {S : Type} [fintype S]
 
+-- @[derive fintype]
 @[derive decidable_eq]
 inductive U : Type
 | start : U
@@ -32,7 +33,7 @@ begin
     all_goals { simpa [epsnfa_empty] using a_h},
 end
 
-theorem empty_is_epsnfa_lang : @epsnfa_lang S ∅ := by exactI ⟨U, _, epsnfa_empty, epsnfa_empty_eq⟩
+theorem empty_is_epsnfa_lang : epsnfa_lang (∅ : set (list S)) := by exactI ⟨U, _, epsnfa_empty, epsnfa_empty_eq⟩
 
 def epsnfa_eps : epsNFA S U := {
     start := U.start,
@@ -61,7 +62,7 @@ begin
         }
     }, {
         rintro hw,
-        refine @go.eps _ _ _ _ _ _ U.finish _ _ _,
+        refine @go.eps _ _ _ _ _ _ _ U.finish _ _ _,
         simp [epsnfa_eps],
         rw [mem_singleton_iff] at hw,
         rw hw,
@@ -69,7 +70,7 @@ begin
     }
 end
 
-theorem eps_is_epsnfa_lang : @epsnfa_lang S {[]} :=  by exactI ⟨U, _, epsnfa_eps, epsnfa_eps_eq⟩
+theorem eps_is_epsnfa_lang : epsnfa_lang ({[]} : set (list S)) :=  by exactI ⟨U, _, epsnfa_eps, epsnfa_eps_eq⟩
 
 def epsnfa_one (char : S) : epsNFA S U := {
     start := U.start,
@@ -106,12 +107,12 @@ begin
         rintro hw,
         rw [mem_singleton_iff] at hw,
         rw hw,
-        refine @go.step _ _ _ _ char _ _ U.finish _ _ _,
+        refine @go.step _ _ _ _ _ char _ _ U.finish _ _ _,
         simp [epsnfa_one],
         exact go.finish,
     }
 end
 
-theorem one_is_epsnfa_lang {char : S} : @epsnfa_lang S {[char]} := by exactI ⟨U, _, epsnfa_one char, epsnfa_one_eq⟩
+theorem one_is_epsnfa_lang {char : S} : epsnfa_lang ({[char]} : set (list S)) := by exactI ⟨U, _, epsnfa_one char, epsnfa_one_eq⟩
 
 end epsnfa.triv

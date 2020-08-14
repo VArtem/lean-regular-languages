@@ -7,9 +7,9 @@ import automata.dfa
 namespace nfa
 open set list dfa
 
-variables {S Q : Type} [fintype Q] 
+variables {S Q : Type} [fintype S] [fintype Q] 
 
-structure NFA (S : Type) (Q : Type) [fintype Q] :=
+structure NFA (S : Type) (Q : Type) [fintype S] [fintype Q] :=
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → set Q) -- transitions

@@ -3,20 +3,19 @@ import data.set.finite
 import data.finset.basic
 import automata.epsnfa
 import languages.basic
-import tactic
 
 open set epsnfa languages
 
 namespace epsnfa.append
 
-variables {S Q Q1 Q2 : Type} [fintype Q1] [fintype Q2]
+variables {S Q Q1 Q2 : Type} [fintype S] [fintype Q1] [fintype Q2]
 
-@[derive decidable_eq]
+-- @[derive fintype]
 inductive U (Q1 Q2 : Type) [fintype Q1] [fintype Q2] : Type
-| left (q : Q1) : U
-| right (q : Q2) : U
+| left : Q1 → U
+| right : Q2 → U
 
-instance : fintype (U Q1 Q2) := {
+instance : fintype (U Q1 Q2) := { -- will be @[derive fintype] when it works
     elems := sorry,
     complete := sorry,
 }

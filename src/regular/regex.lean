@@ -9,7 +9,7 @@ open languages
 
 namespace regex
 
-variable {S : Type}
+variables {S : Type} [fintype S]
 
 inductive regex (S : Type)
 | empty     : regex
@@ -42,7 +42,7 @@ open regex_accepts_word
 
 @[simp] def lang_of_regex (r : regex S) : set (list S) := {w : list S | regex_accepts_word r w}
 
-def regex_lang (l : set (list S)) := ∃ {r : regex S}, l = lang_of_regex r
+def regex_lang (l : set (list S)) [fintype S] := ∃ {r : regex S}, l = lang_of_regex r
 
 @[simp] lemma mem_lang_iff_accepts 
     {L : set (list S)} {r : regex S} {w : list S} 

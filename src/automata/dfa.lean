@@ -1,6 +1,5 @@
 import data.set.basic
-import data.set.finite
-import data.finset
+import data.fintype.basic
 import tactic
 
 import automata.lemmas
@@ -8,14 +7,13 @@ import automata.lemmas
 namespace dfa
 open set list
 
-variables {S Q : Type}
--- TODO: variables fS fQ : fintype S 
+variables {S Q : Type} [fintype Q]
 
-structure DFA (S : Type) (Q : Type) := -- alphabet
+structure DFA (S : Type) (Q : Type) [fintype Q] :=
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → Q) -- transitions
-    
+
 inductive go (dfa : DFA S Q) : Q → list S → Q → Prop
 | finish : Π {q : Q}, go q [] q
 | step   : Π {head : S} {tail : list S} {q f : Q},
@@ -26,8 +24,7 @@ inductive go (dfa : DFA S Q) : Q → list S → Q → Prop
 
 @[simp] def lang_of_dfa (dfa : DFA S Q) := {w | dfa_accepts_word dfa w}
 
-def dfa_lang (lang : set (list S)) : Prop := 
-    ∃ {Q : Type} (dfa : DFA S Q), lang = lang_of_dfa dfa
+def dfa_lang (lang : set (list S)) := ∃ (Q : Type) [fintype Q], by exactI ∃ {dfa : DFA S Q}, lang = lang_of_dfa dfa 
 
 @[simp] lemma dfa_go_step_iff (dfa : DFA S Q) (q : Q) {head : S} {tail : list S} :
     go dfa q (head :: tail) = go dfa (dfa.next q head) tail :=
@@ -76,8 +73,7 @@ begin
 end
 
 lemma eq_next_goes_to_iff 
-    {S Q : Type} (d1 d2 : DFA S Q)
-    (h : d1.next = d2.next) (w : list S) (q r : Q)
+    (d1 d2 : DFA S Q) (h : d1.next = d2.next) (w : list S) (q r : Q)
     : go d1 q w r ↔ go d2 q w r := 
 begin
     induction w with head tail hyp generalizing q, {
@@ -91,8 +87,8 @@ begin
 end
 
 @[simp] lemma mem_lang_iff_dfa_accepts 
-    {S Q : Type} {L : set (list S)} 
-    {dfa : DFA S Q} {w : list S} (autl : L = lang_of_dfa dfa) : w ∈ L ↔ dfa_accepts_word dfa w := 
+    {L : set (list S)} {dfa : DFA S Q} {w : list S} (autl : L = lang_of_dfa dfa) 
+    : w ∈ L ↔ dfa_accepts_word dfa w := 
 begin
     split; finish,
 end
@@ -104,15 +100,9 @@ def compl_dfa (dfa : DFA S Q) : DFA S Q := {
 }
 
 lemma lang_of_compl_dfa_is_compl_of_lang (dfa : DFA S Q) : 
-    lang_of_dfa (compl_dfa dfa) = (lang_of_dfa dfa)ᶜ :=
+    (lang_of_dfa dfa)ᶜ = lang_of_dfa (compl_dfa dfa) :=
 begin
     apply subset.antisymm, {
-        rw [subset_compl_iff_disjoint, eq_empty_iff_forall_not_mem],
-        rintro x ⟨⟨t, tgo, tterm⟩, ⟨r, rgo, rterm⟩⟩,
-        rw eq_next_goes_to_iff (compl_dfa dfa) dfa rfl x (compl_dfa dfa).start t at tgo,
-        have h : t = r := by apply dfa_go_unique tgo rgo,
-        finish,
-    }, {
         rw [compl_subset_iff_union, eq_univ_iff_forall],
         intro x,
         rcases (dfa_go_exists_unique dfa dfa.start x) with ⟨t, tgo, tuniq⟩,
@@ -125,27 +115,35 @@ begin
             rw eq_next_goes_to_iff (compl_dfa dfa) dfa rfl x (compl_dfa dfa).start,
             use tgo,
         }
-    },
+    }, {
+        rw [subset_compl_iff_disjoint, eq_empty_iff_forall_not_mem],
+        rintro x ⟨⟨t, tgo, tterm⟩, ⟨r, rgo, rterm⟩⟩,
+        rw eq_next_goes_to_iff (compl_dfa dfa) dfa rfl x (compl_dfa dfa).start t at tgo,
+        have h : t = r := by apply dfa_go_unique tgo rgo,
+        finish,
+    }, 
 end
 
-theorem compl_is_aut {S : Type} {L : set (list S)} : dfa_lang L → dfa_lang Lᶜ :=
+theorem compl_is_dfa {L : set (list S)} : dfa_lang L → dfa_lang Lᶜ :=
 begin
-    rintro ⟨Q, ⟨aut, rfl⟩⟩,
-    use [Q, compl_dfa aut],
-    rwa lang_of_compl_dfa_is_compl_of_lang,
+    rintro ⟨Q, fQ, dfa, rfl⟩,
+    resetI,
+    use [Q, fQ, compl_dfa dfa],
+    rw lang_of_compl_dfa_is_compl_of_lang,
 end
 
-def inter_dfa {S Ql Qm : Type} (l : DFA S Ql) (m : DFA S Qm) : DFA S (Ql × Qm) := {
+section inter_dfa
+
+variables {Ql Qm : Type} [fintype Ql] [fintype Qm]
+
+def inter_dfa (l : DFA S Ql) (m : DFA S Qm) : DFA S (Ql × Qm) := {
     start := (l.start, m.start),
     term := {p : (Ql × Qm) | p.1 ∈ l.term ∧ p.2 ∈ m.term},
     next := λ (st : Ql × Qm) (c : S), (l.next st.1 c, m.next st.2 c)
 }
 
-lemma inter_dfa_go 
-    {S Ql Qm : Type} 
-    (l : DFA S Ql) (m : DFA S Qm) {ql qm rl rm}
-     : ∀ {w : list S},
-        (go l ql w rl ∧ go m qm w rm) ↔ go (inter_dfa l m) (ql, qm) w (rl, rm):=
+lemma inter_dfa_go (l : DFA S Ql) (m : DFA S Qm) {ql qm rl rm}
+     : ∀ {w : list S}, (go l ql w rl ∧ go m qm w rm) ↔ go (inter_dfa l m) (ql, qm) w (rl, rm):=
 begin
     intro w,
     induction w with head tail hyp generalizing ql qm, {
@@ -158,13 +156,14 @@ begin
     },
 end
 
-theorem inter_is_aut 
-    {S : Type} {L M : set (list S)} 
+theorem inter_is_dfa {L M : set (list S)} 
     (hl : dfa_lang L) (hm : dfa_lang M) : dfa_lang (L ∩ M) :=
 begin
-    rcases hl with ⟨Ql, ⟨dl, hl⟩⟩,
-    rcases hm with ⟨Qm, ⟨dm, hm⟩⟩,
-    use [Ql × Qm, inter_dfa dl dm],
+    rcases hl with ⟨Ql, fQl, dl, hl⟩,
+    rcases hm with ⟨Qm, fQm, dm, hm⟩,
+    letI := fQl,
+    letI := fQm,
+    existsi [Ql × Qm, _, inter_dfa dl dm],
     ext word, 
     split, {
         rintro ⟨xl, xm⟩,
@@ -187,14 +186,16 @@ begin
     },
 end
 
-theorem union_is_aut {S : Type} {L M : set (list S)} 
+theorem union_is_dfa {L M : set (list S)} 
     (hl : dfa_lang L) (hm : dfa_lang M) : dfa_lang (L ∪ M) :=
 begin
     rw union_eq_compl_compl_inter_compl,
-    apply compl_is_aut,
-    apply inter_is_aut,
-    exact compl_is_aut hl,
-    exact compl_is_aut hm,
+    apply compl_is_dfa,
+    apply inter_is_dfa,
+    exact compl_is_dfa hl,
+    exact compl_is_dfa hm,
 end
+
+end inter_dfa
     
 end dfa

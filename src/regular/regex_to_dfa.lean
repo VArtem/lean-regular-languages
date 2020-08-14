@@ -28,7 +28,7 @@ begin
         exact epsnfa_to_dfa_eq triv.one_is_epsnfa_lang,
     }, {
         rw regex_union_is_lang_union,
-        convert union_is_aut _ _;
+        convert union_is_dfa _ _;
         assumption,
     }, {
         rw regex_append_is_lang_append,

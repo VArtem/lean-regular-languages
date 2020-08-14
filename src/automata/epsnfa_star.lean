@@ -8,11 +8,17 @@ open set epsnfa languages
 
 namespace epsnfa.star
 
-variables {S Q : Type}
+variables {S Q : Type} [fintype Q]
 
-inductive U (Q : Type) : Type
+@[derive decidable_eq]
+inductive U (Q : Type) [fintype Q] : Type
 | start : U
 | inside (q : Q) : U
+
+instance : fintype (U Q) := {
+    elems := sorry,
+    complete := sorry,
+}
 
 def epsnfa_star (e : epsNFA S Q) : epsNFA S (U Q) := {
     start := U.start,
@@ -62,7 +68,7 @@ begin
         rintro w ⟨left, right, hleft, hright, rfl⟩,
         replace hright := n_ih hright,
         refine epsnfa_go_trans _ hright,
-        refine @go.eps _ _ _ _ _ (U.inside e.start) _ _ _, {
+        refine @go.eps _ _ _ _ _ _ (U.inside e.start) _ _ _, {
             simp [epsnfa_star],
         }, {
             convert epsnfa_go_trans (epsnfa_star_go_inside hleft) _,
@@ -166,8 +172,9 @@ end
 
 theorem star_is_epsnfa {L : set (list S)}: epsnfa_lang L → epsnfa_lang (kleene_star L) :=
 begin
-    rintro ⟨Ql, enl, langl⟩,
-    use [U Ql, epsnfa_star enl],
+    rintro ⟨Q, fQ, enl, langl⟩,
+    letI := fQ,
+    existsi [U Q, _, epsnfa_star enl],
     rwa [← langl, epsnfa_star_correct],
 end
 

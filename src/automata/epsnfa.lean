@@ -143,12 +143,10 @@ end epsnfa_to_nfa
 
 section nfa_to_epsnfa
 
--- @[derive fintype]
-inductive U (Q : Type) : Type
+@[derive fintype]
+inductive U (Q : Type) [fintype Q] : Type
 | inside : Q → U
 | finish : U
-
-instance [fintype Q] : fintype (U Q) := sorry
 
 def nfa_to_epsnfa (nfa : nfa.NFA S Q) : epsNFA S (U Q) := {
     start := U.inside nfa.start,

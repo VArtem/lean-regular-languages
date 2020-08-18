@@ -33,6 +33,12 @@ begin
     simpa only [pow_zero],
 end
 
+@[simp] lemma nil_mem_star {L : set (list S)} : [] ∈ kleene_star L :=
+begin
+    use 0,
+    simp only [one_def, pow_zero, mem_singleton],
+end
+
 @[simp] lemma power_subset_star {L : set (list S)} (n : ℕ) : L^n ⊆ kleene_star L :=
 begin
     rw star_Union,

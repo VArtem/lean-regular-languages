@@ -10,14 +10,10 @@ namespace epsnfa.triv
 
 variables {S : Type} [fintype S]
 
--- @[derive fintype]
-@[derive decidable_eq]
+@[derive fintype]
 inductive U : Type
 | start : U
 | finish : U
-
-instance fintype: fintype U :=
-{elems := {U.start, U.finish}, complete := λ x, by cases x; simp}
 
 def epsnfa_empty : epsNFA S U := {
     start := U.start,

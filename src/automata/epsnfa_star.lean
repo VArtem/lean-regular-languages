@@ -10,15 +10,10 @@ namespace epsnfa.star
 
 variables {S Q : Type} [fintype S] [fintype Q]
 
--- @[derive fintype]
+@[derive fintype]
 inductive U (Q : Type) [fintype Q] : Type
 | start : U
 | inside (q : Q) : U
-
-instance : fintype (U Q) := {
-    elems := sorry,
-    complete := sorry,
-}
 
 def epsnfa_star (e : epsNFA S Q) : epsNFA S (U Q) := {
     start := U.start,

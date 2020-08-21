@@ -6,9 +6,9 @@ open set
 
 namespace epsnfa
 
-variables {S Q : Type} [fintype S] [fintype Q]
+variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
 
-structure epsNFA (S : Type) (Q : Type) [fintype Q] :=
+structure epsNFA (S : Type) (Q : Type) [fintype Q] [decidable_eq Q] :=
     (start : Q) -- starting state
     (term : Q) -- terminal state (only one!)
     (next : Q → S → set Q) -- transitions
@@ -18,7 +18,7 @@ inductive go (enfa : epsNFA S Q) : Q → list S → Q → Prop
 | finish {q} : go q [] q
 | step   : Π {head : S} {tail : list S} {q n f : Q} (h : n ∈ enfa.next q head),
     go n tail f → go q (head::tail) f 
-| eps    : Π {tail : list S} {q n f : Q} (h : n ∈ enfa.eps q),
+| eps    : Π {tail : list S} {q : Q} (n : Q) {f : Q} (h : n ∈ enfa.eps q),
     go n tail f → go q tail f
 
 @[simp] def epsnfa_accepts_word (enfa : epsNFA S Q) (w : list S) : Prop := go enfa enfa.start w enfa.term
@@ -28,7 +28,7 @@ def eps_reach (enfa : epsNFA S Q) (q : Q) (r : Q) := go enfa q [] r
 @[simp] def lang_of_epsnfa (enfa : epsNFA S Q) := {w | epsnfa_accepts_word enfa w}
 
 def epsnfa_lang (lang : set (list S)) : Prop := 
-    ∃ {Q : Type} [fintype Q], by exactI ∃ (enfa : epsNFA S Q), lang_of_epsnfa enfa = lang
+    ∃ {Q : Type} [fintype Q] [decidable_eq Q], by exactI ∃ (enfa : epsNFA S Q), lang_of_epsnfa enfa = lang
 
 lemma epsnfa_go_trans {enfa : epsNFA S Q} {a b c : Q} {left right : list S}:
     go enfa a left b → go enfa b right c → go enfa a (left ++ right) c :=
@@ -37,7 +37,7 @@ begin
     induction hab with q  head tail q n f h prev ih  tail q n f h prev ih, 
     { exact hfc }, 
     { apply go.step h (ih hfc) },
-    { apply go.eps h (ih hfc) },
+    { apply go.eps _ h (ih hfc) },
 end
 
 lemma epsnfa_go_exists_cons {enfa : epsNFA S Q} {a d : Q} 
@@ -53,7 +53,7 @@ begin
         use [q, n, go.finish, h, prev],
     }, {
         rcases ih clr with ⟨b, c, eps_ab, next_bc, tail_cd⟩,
-        use [b, c, go.eps h eps_ab, next_bc, tail_cd],
+        use [b, c, go.eps _ h eps_ab, next_bc, tail_cd],
     }
 end
 
@@ -130,9 +130,9 @@ end
 
 theorem epsnfa_to_nfa_eq {L : set (list S)} : epsnfa_lang L → nfa.nfa_lang L :=
 begin
-    rintro ⟨Q, fQ, enf, rfl⟩,
+    rintro ⟨Q, fQ, dQ, enf, rfl⟩,
     letI := fQ,
-    existsi [Q, _, epsnfa_to_nfa enf],
+    existsi [Q, _, _, epsnfa_to_nfa enf],
     ext x,
     exact epsnfa_to_nfa_accepts_iff_accepts enf x enf.start rfl,    
 end
@@ -143,8 +143,8 @@ end epsnfa_to_nfa
 
 section nfa_to_epsnfa
 
-@[derive fintype]
-inductive U (Q : Type) [fintype Q] : Type
+@[derive fintype, derive decidable_eq]
+inductive U (Q : Type) [fintype Q] [decidable_eq Q] : Type
 | inside : Q → U
 | finish : U
 
@@ -210,7 +210,7 @@ begin
     }, {
         rintro ⟨t, t_go, t_term⟩,
         induction t_go, {
-            refine go.eps _ go.finish,
+            refine go.eps _ _ go.finish,
             simp [nfa_to_epsnfa, t_term], 
         }, {
             refine go.step _ (t_go_ih t_term),
@@ -221,9 +221,9 @@ end
 
 theorem nfa_to_epsnfa_eq {L : set (list S)} : nfa.nfa_lang L → epsnfa_lang L :=
 begin
-    rintro ⟨Q, fQ, nfa, rfl⟩,
+    rintro ⟨Q, fQ, dQ, nfa, rfl⟩,
     letI := fQ,
-    existsi [U Q, _, nfa_to_epsnfa nfa],
+    existsi [U Q, _, _, nfa_to_epsnfa nfa],
     ext x,
     exact nfa_to_epsnfa_accepts_iff_accepts nfa x nfa.start rfl,
 end

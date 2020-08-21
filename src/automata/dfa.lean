@@ -5,9 +5,9 @@ import tactic
 namespace dfa
 open set list
 
-variables {S Q : Type} [fintype S] [fintype Q]
+variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
 
-structure DFA (S : Type) (Q : Type) [fintype S] [fintype Q] :=
+structure DFA (S : Type) (Q : Type) [fintype S] [fintype Q] [decidable_eq Q] :=
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → Q) -- transitions
@@ -22,7 +22,8 @@ inductive go (dfa : DFA S Q) : Q → list S → Q → Prop
 
 @[simp] def lang_of_dfa (dfa : DFA S Q) := {w | dfa_accepts_word dfa w}
 
-def dfa_lang (lang : set (list S)) := ∃ (Q : Type) [fintype Q], by exactI ∃ {dfa : DFA S Q}, lang = lang_of_dfa dfa 
+def dfa_lang (lang : set (list S)) := 
+    ∃ (Q : Type) [fintype Q] [decidable_eq Q], by exactI ∃ {dfa : DFA S Q}, lang = lang_of_dfa dfa 
 
 @[simp] lemma dfa_go_step_iff (dfa : DFA S Q) (q : Q) {head : S} {tail : list S} :
     go dfa q (head :: tail) = go dfa (dfa.next q head) tail :=
@@ -124,15 +125,15 @@ end
 
 theorem compl_is_dfa {L : set (list S)} : dfa_lang L → dfa_lang Lᶜ :=
 begin
-    rintro ⟨Q, fQ, dfa, rfl⟩,
+    rintro ⟨Q, fQ, dQ, dfa, rfl⟩,
     resetI,
-    use [Q, fQ, compl_dfa dfa],
+    use [Q, fQ, dQ, compl_dfa dfa],
     rw lang_of_compl_dfa_is_compl_of_lang,
 end
 
 section inter_dfa
 
-variables {Ql Qm : Type} [fintype Ql] [fintype Qm]
+variables {Ql Qm : Type} [fintype Ql] [fintype Qm] [decidable_eq Ql] [decidable_eq Qm]
 
 def inter_dfa (l : DFA S Ql) (m : DFA S Qm) : DFA S (Ql × Qm) := {
     start := (l.start, m.start),
@@ -157,11 +158,11 @@ end
 theorem inter_is_dfa {L M : set (list S)} 
     (hl : dfa_lang L) (hm : dfa_lang M) : dfa_lang (L ∩ M) :=
 begin
-    rcases hl with ⟨Ql, fQl, dl, hl⟩,
-    rcases hm with ⟨Qm, fQm, dm, hm⟩,
+    rcases hl with ⟨Ql, fQl, dQl, dl, hl⟩,
+    rcases hm with ⟨Qm, fQm, dQm, dm, hm⟩,
     letI := fQl,
     letI := fQm,
-    existsi [Ql × Qm, _, inter_dfa dl dm],
+    existsi [Ql × Qm, _, _, inter_dfa dl dm],
     ext word, 
     split, {
         rintro ⟨xl, xm⟩,

@@ -1,5 +1,6 @@
 import data.set.basic
 import data.fintype.basic
+import data.finset.lattice
 import tactic
 
 import automata.dfa
@@ -7,7 +8,7 @@ import automata.dfa
 namespace nfa
 open set list dfa
 
-variables {S Q : Type} [fintype S] [fintype Q] 
+variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
 
 structure NFA (S : Type) (Q : Type) [fintype S] [fintype Q] :=
     (start : Q) -- starting state
@@ -25,7 +26,7 @@ inductive go (nfa : NFA S Q) : Q → list S → Q → Prop
 @[simp] def lang_of_nfa (nfa : NFA S Q) := {w | nfa_accepts_word nfa w}
 
 def nfa_lang (lang : set (list S)) :=
-    ∃ {Q : Type} [fintype Q], by exactI ∃ (nfa : NFA S Q), lang = lang_of_nfa nfa
+    ∃ {Q : Type} [fintype Q] [decidable_eq Q], by exactI ∃ (nfa : NFA S Q), lang = lang_of_nfa nfa
 
 lemma nfa_go_append {nfa : NFA S Q} {a b c : Q} {left right : list S}:
     go nfa a left b → go nfa b right c → go nfa a (left ++ right) c :=
@@ -73,9 +74,9 @@ end
 
 theorem dfa_to_nfa_eq {L : set (list S)} (hdfa : dfa_lang L) : nfa_lang L :=
 begin
-    rcases hdfa with ⟨ Q, fQ, d, rfl⟩,
+    rcases hdfa with ⟨Q, fQ, dQ, d, rfl⟩,
     letI := fQ,
-    existsi [Q, _, dfa_to_nfa d],
+    existsi [Q, _, _, dfa_to_nfa d],
     
     ext x,
     rw [lang_of_dfa, lang_of_nfa, mem_set_of_eq, mem_set_of_eq],
@@ -90,9 +91,11 @@ begin
     }
 end
 
+instance [fintype Q] [decidable_eq Q] : decidable_eq (set Q) := sorry
+
 def nfa_to_dfa (nfa : NFA S Q) : DFA S (set Q) := {
     start := {nfa.start},
-    term := {q : set Q | (q ∩ nfa.term).nonempty},
+    term := {q : set Q | by exactI ∃ t, t ∈ q ∧ t ∈ nfa.term },
     next := λ q ch, (⋃ x ∈ q, nfa.next x ch),
 }
 
@@ -154,9 +157,9 @@ end
 
 theorem nfa_to_dfa_eq {L : set (list S)} (hnfa : nfa_lang L) : dfa_lang L :=
 begin
-    rcases hnfa with ⟨Q, fQ, nfa, rfl⟩,
+    rcases hnfa with ⟨Q, fQ, dQ, nfa, rfl⟩,
     letI := fQ,
-    existsi [set Q, _, nfa_to_dfa nfa],    
+    existsi [set Q, _, _, nfa_to_dfa nfa],    
     ext x,
     dsimp,
     have tmp : (nfa_to_dfa nfa).start = {nfa.start} := rfl,

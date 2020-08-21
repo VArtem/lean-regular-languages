@@ -8,10 +8,10 @@ open set epsnfa languages
 
 namespace epsnfa.append
 
-variables {S Q Q1 Q2 : Type} [fintype S] [fintype Q1] [fintype Q2]
+variables {S Q Q1 Q2 : Type} [fintype S] [fintype Q1] [fintype Q2] [decidable_eq Q1] [decidable_eq Q2]
 
-@[derive fintype]
-inductive U (Q1 Q2 : Type) [fintype Q1] [fintype Q2] : Type
+@[derive fintype, derive decidable_eq]
+inductive U (Q1 Q2 : Type) [fintype Q1] [fintype Q2] [decidable_eq Q1] [decidable_eq Q2] : Type
 | left : Q1 → U
 | right : Q2 → U
 
@@ -69,7 +69,7 @@ begin
             dsimp [epsnfa_append],
             simpa only [mem_image, exists_eq_right], 
         }, {
-            refine go.eps _ goleft_ih,
+            refine go.eps _ _ goleft_ih,
             dsimp [epsnfa_append],
             by_cases goleft_q = e1.term;
             simpa [h] using goleft_h,
@@ -97,7 +97,7 @@ begin
         }, {
             substs ha hb,
             cases goappend_n, {
-                refine go.eps _ (@goappend_ih rfl goappend_n rfl),
+                refine go.eps _ _ (@goappend_ih rfl goappend_n rfl),
                 by_cases a = e1.term;
                 simpa [epsnfa_append, h] using goappend_h,
             }, {
@@ -122,7 +122,7 @@ begin
             dsimp [epsnfa_append],
             simpa only [mem_image, exists_eq_right], 
         }, {
-            refine go.eps _ goright_ih,
+            refine go.eps _ _ goright_ih,
             dsimp [epsnfa_append],
             simpa only [mem_image, exists_eq_right],
         }
@@ -152,7 +152,7 @@ begin
                 exfalso,
                 simpa [epsnfa_append] using goappend_h,
             }, {
-                refine go.eps _ (@goappend_ih rfl goappend_n rfl),
+                refine go.eps _ _ (@goappend_ih rfl goappend_n rfl),
                 simpa [epsnfa_append] using goappend_h,
             }
         }
@@ -199,7 +199,7 @@ begin
             rcases goappend_ih with ⟨left, right, rfl, goleft, goright⟩,
             use [left, right, rfl],
             split, {
-                refine go.eps _ goleft,
+                refine go.eps _ _ goleft,
                 simp [epsnfa_append] at goappend_h,
                 by_cases a = e1.term;
                 simpa [h] using goappend_h,
@@ -236,18 +236,18 @@ begin
         rintro _ ⟨left, right, hleft, hright, rfl⟩,
         dsimp at hleft hright,
         apply epsnfa_go_trans (epsnfa_append_go_left.1 hleft),
-        refine go.eps _ (epsnfa_append_go_right.1 hright),
+        refine go.eps _ _ (epsnfa_append_go_right.1 hright),
         simp [epsnfa_append],
     }
 end
 
 theorem append_is_epsnfa {L M : set (list S)}: epsnfa_lang L → epsnfa_lang M → epsnfa_lang (L * M) :=
 begin
-    rintro ⟨Ql, fQ, enl, langl⟩ ⟨Qm, fQ, enm, langm⟩,
-    letI := fQ,
-    existsi [U Ql Qm, _, epsnfa_append enl enm],
+    rintro ⟨Ql, fQl, dQl, enl, langl⟩ ⟨Qm, fQm, dQm, enm, langm⟩,
+    resetI,
+    existsi [U Ql Qm, _, _, epsnfa_append enl enm],   
     substs langl langm,
-    exact epsnfa_append_correct _ _,
+    exact epsnfa_append_correct enl enm,
 end
 
 end epsnfa.append

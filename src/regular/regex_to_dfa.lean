@@ -12,7 +12,7 @@ open languages regex dfa epsnfa
 
 namespace regex.to_dfa
 
-variables {S : Type} [fintype S]
+variables {S : Type} [fintype S] 
 
 theorem regex_to_dfa {L : set (list S)} : regex_lang L → dfa_lang L :=
 begin
@@ -24,7 +24,7 @@ begin
         rw regex_eps_is_eps_lang,
         exact epsnfa_to_dfa_eq triv.eps_is_epsnfa_lang,
     }, {
-        rw regex_one_is_single_lang,
+        rw regex_one_is_one_lang,
         exact epsnfa_to_dfa_eq triv.one_is_epsnfa_lang,
     }, {
         rw regex_union_is_lang_union,

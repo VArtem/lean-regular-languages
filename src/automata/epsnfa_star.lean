@@ -8,9 +8,9 @@ open set epsnfa languages
 
 namespace epsnfa.star
 
-variables {S Q : Type} [fintype S] [fintype Q]
+variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
 
-@[derive fintype]
+@[derive fintype, derive decidable_eq]
 inductive U (Q : Type) [fintype Q] : Type
 | start : U
 | inside (q : Q) : U
@@ -45,7 +45,7 @@ begin
         dsimp [epsnfa_star],
         simpa only [mem_image, exists_eq_right], 
     }, {
-        refine go.eps _ go_inside_ih,
+        refine go.eps _ _ go_inside_ih,
         dsimp [epsnfa_star],            
         by_cases go_inside_q = e.term;
         simpa [h] using go_inside_h,
@@ -63,12 +63,13 @@ begin
         rintro w ⟨left, right, hleft, hright, rfl⟩,
         replace hright := n_ih hright,
         refine epsnfa_go_trans _ hright,
-        refine @go.eps _ _ _ _ _ _ _ (U.inside e.start) _ _ _, {
+
+        refine go.eps (U.inside e.start) _ _, {
             simp [epsnfa_star],
         }, {
             convert epsnfa_go_trans (epsnfa_star_go_inside hleft) _,
             rw list.append_nil,
-            refine go.eps _ go.finish,
+            refine go.eps _ _ go.finish,
             simp [epsnfa_star],
         }
     }
@@ -130,7 +131,7 @@ begin
                 use [go.finish, hlist], 
                 exfalso, simpa [epsnfa_star, h] using hnxt,
             }, {
-                convert and.intro (go.eps _ qnxt_go) hlist,
+                convert and.intro (go.eps _ _ qnxt_go) hlist,
                 by_cases q = e.term;
                 simpa [epsnfa_star, h] using hnxt,
             }   
@@ -167,9 +168,9 @@ end
 
 theorem star_is_epsnfa {L : set (list S)}: epsnfa_lang L → epsnfa_lang (kleene_star L) :=
 begin
-    rintro ⟨Q, fQ, enl, langl⟩,
+    rintro ⟨Q, fQ, dQ, enl, langl⟩,
     letI := fQ,
-    existsi [U Q, _, epsnfa_star enl],
+    existsi [U Q, _, _, epsnfa_star enl],
     rwa [← langl, epsnfa_star_correct],
 end
 

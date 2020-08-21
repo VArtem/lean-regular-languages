@@ -4,6 +4,9 @@ import data.list.basic
 import tactic
 import languages.basic
 import languages.star
+import data.finset.basic
+import data.finset.lattice
+
 
 open languages
 
@@ -57,6 +60,12 @@ begin
     rintro x ⟨_⟩,
 end
 
+theorem empty_is_regex : regex_lang (∅ : set (list S)) := 
+begin
+    use regex.empty,
+    rw regex_empty_is_empty_lang,
+end
+
 theorem regex_eps_is_eps_lang : lang_of_regex (regex.eps : regex S) = { [] } :=
 begin
     ext x, split, {
@@ -68,7 +77,14 @@ begin
     }
 end
 
-theorem regex_one_is_single_lang {ch : S} : lang_of_regex (regex.one ch) = { [ch] } :=
+theorem eps_is_regex : regex_lang ({[]} : set (list S)) := 
+begin
+    use regex.eps,
+    rw regex_eps_is_eps_lang,
+end
+
+
+theorem regex_one_is_one_lang {ch : S} : lang_of_regex (regex.one ch) = { [ch] } :=
 begin
     ext x, split, {
         rintro ⟨_⟩,
@@ -77,6 +93,12 @@ begin
         intro xone, 
         convert regex_accepts_word.one,
     }
+end
+
+theorem one_is_regex {c : S} : regex_lang ({[c]} : set (list S)) := 
+begin
+    use regex.one c,
+    rw regex_one_is_one_lang,
 end
 
 theorem regex_union_is_lang_union {rl rm : regex S}
@@ -93,6 +115,13 @@ begin
     }, 
 end
 
+theorem union_is_regex {L M : set (list S)}: regex_lang L → regex_lang M → regex_lang (L ∪ M) := 
+begin
+    rintro ⟨rl, rfl⟩ ⟨rm, rfl⟩,
+    use regex.union rl rm,
+    rw regex_union_is_lang_union,
+end
+
 theorem regex_append_is_lang_append {rl rm : regex S}
     : lang_of_regex (regex.append rl rm) = lang_of_regex rl * lang_of_regex rm :=
 begin
@@ -105,6 +134,13 @@ begin
         rintro _ ⟨ left, right, hleft, hright, rfl ⟩,
         exact regex_accepts_word.append hleft hright,
     }
+end
+
+theorem append_is_regex {L M : set (list S)}: regex_lang L → regex_lang M → regex_lang (L * M) := 
+begin
+    rintro ⟨rl, rfl⟩ ⟨rm, rfl⟩,
+    use regex.append rl rm,
+    rw regex_append_is_lang_append,
 end
 
 lemma regex_star_iff_list_join {L : set (list S)} {r rs: regex S} 
@@ -169,6 +205,29 @@ begin
             rintro _ ⟨left, right, hleft, hright, rfl⟩,
             exact regex_accepts_word.star_append hleft (hyp hright),
         },
+    }
+end
+
+theorem star_is_regex {L : set (list S)}: regex_lang L → regex_lang (kleene_star L) := 
+begin
+    rintro ⟨rl, rfl⟩,
+    use regex.star rl,
+    rw regex_star_is_kleene_star,
+end
+
+theorem finset_bUnion_is_regex {α : Type*} {X : finset α} {P : α → set (list S)} [decidable_eq α] : 
+    (∀ c, c ∈ X → regex_lang(P c)) → regex_lang(⋃ c ∈ X, P c) :=
+begin
+    apply finset.induction_on X, {
+        intro hX,
+        simp only [finset.not_mem_empty, set.Union_empty, set.Union_neg, not_false_iff],
+        exact empty_is_regex,
+    }, {
+        rintro head tail h_head ih hX,
+        rw finset.bUnion_insert,
+        refine union_is_regex _ _, 
+        refine hX _ (finset.mem_insert_self _ _),
+        refine ih (λ c c_tail, hX c (finset.mem_insert_of_mem c_tail)),
     }
 end
 

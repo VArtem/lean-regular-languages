@@ -1,16 +1,16 @@
 import data.set.basic
 import data.fintype.basic
-import data.finset.lattice
+import data.finset.basic
 import tactic
 
 import automata.dfa
 
 namespace nfa
-open set list dfa
+open set list dfa finset
 
 variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
 
-structure NFA (S : Type) (Q : Type) [fintype S] [fintype Q] :=
+structure NFA (S : Type) (Q : Type) [fintype S] [fintype Q] [decidable_eq Q] :=
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → set Q) -- transitions
@@ -49,23 +49,25 @@ def dfa_to_nfa (dfa : DFA S Q) : NFA S Q := {
 
 lemma dfa_to_nfa_goes_to
     {d : dfa.DFA S Q} {w : list S} {q r : Q}
-    : go (dfa_to_nfa d) q w r ↔ dfa.go d q w r := 
+    : go (dfa_to_nfa d) q w r ↔ dfa.go d q w = r := 
 begin
     split, {
         intro go_nfa,
         induction go_nfa with q head tail q nxt f hnxt go_tail ih, {
-            exact dfa.go.finish,
+            rw dfa.go_finish,
         }, {
-            suffices : nxt = d.next q head,
-            subst this,
-            exact dfa.go.step ih,
-            simpa only [] using hnxt,
+            rw dfa.go_step,
+            convert ih,
+            simp only [dfa_to_nfa, mem_singleton_iff] at hnxt,
+            exact hnxt.symm,
         }
     }, {
         intro go_dfa,
-        induction go_dfa with q  head tail q f go_tail ih, {
-            exact go.finish,
+        induction w with head tail ih generalizing q, {
+            cases go_dfa, exact go.finish,
         }, {
+            cases go_dfa,
+            specialize @ih (d.next q head) go_dfa,
             refine go.step _ ih,
             simp only [dfa_to_nfa, set.mem_singleton],
         }
@@ -81,76 +83,56 @@ begin
     ext x,
     rw [lang_of_dfa, lang_of_nfa, mem_set_of_eq, mem_set_of_eq],
     split, {
-        rintro ⟨t, t_go, t_term⟩,
-        rw ← dfa_to_nfa_goes_to at t_go,
-        use ⟨t, t_go, t_term⟩,
+        rintro dfa_go,
+        dsimp at dfa_go,
+        use [dfa.go d (d.start) x],
+        rw dfa_to_nfa_goes_to,
+        use [rfl, dfa_go],        
     }, {
         rintro ⟨t, t_go, t_term⟩,
         rw dfa_to_nfa_goes_to at t_go,
-        use ⟨t, t_go, t_term⟩,
+        subst t_go,
+        use t_term,
     }
 end
 
-instance [fintype Q] [decidable_eq Q] : decidable_eq (set Q) := sorry
 
-def nfa_to_dfa (nfa : NFA S Q) : DFA S (set Q) := {
+noncomputable def nfa_to_dfa (nfa : NFA S Q) : DFA S (set Q) := {
     start := {nfa.start},
-    term := {q : set Q | by exactI ∃ t, t ∈ q ∧ t ∈ nfa.term },
-    next := λ q ch, (⋃ x ∈ q, nfa.next x ch),
+    term := {q | ∃ t, t ∈ q ∧ t ∈ nfa.term},
+    next := λ q c, (⋃ t ∈ q, nfa.next t c),
 }
 
-lemma nfa_to_dfa_subset_subset 
-    {n : NFA S Q} {d : dfa.DFA S (set Q)} {s1 s2 e1 e2: set Q} {w : list S} :
-    d = nfa_to_dfa n → dfa.go d s1 w e1 → dfa.go d s2 w e2 → (s1 ⊆ s2) → (e1 ⊆ e2) :=
-begin
-    rintro nfadfa s1e1 s2e2 sub,
-    induction w with head tail hyp generalizing s1 s2, {
-        cases s1e1,
-        cases s2e2,
-        exact sub,
-    }, {
-        rcases s1e1 with _ | ⟨_, _, _, _, s1e1⟩,
-        rcases s2e2 with _ | ⟨_, _, _, _, s2e2⟩,
-        specialize @hyp (d.next s1 head) (d.next s2 head),
-        apply hyp s1e1 s2e2, 
-        subst nfadfa, 
-        dsimp only [nfa_to_dfa],
-        apply bUnion_subset_bUnion_left,
-        exact sub,
-    }
-end
-
 lemma nfa_to_dfa_goes_to
-    {n : NFA S Q} {d : dfa.DFA S (set Q)} (w : list S) {S1 E1 : set Q}
-    : d = nfa_to_dfa n → dfa.go d S1 w E1 → E1 = {e2 : Q | ∃ (s2 : Q), s2 ∈ S1 ∧ go n s2 w e2} := 
+    {n : NFA S Q} {d : dfa.DFA S (set Q)} (w : list S) {S1 : set Q}
+    : d = nfa_to_dfa n → dfa.go d S1 w = {e2 : Q | ∃ (s2 : Q), s2 ∈ S1 ∧ go n s2 w e2} := 
 begin
-    rintro nfadfa,
-    induction w with head tail hyp generalizing S1, {
-        rintro ⟨_⟩,
+    rintro rfl,
+    induction w with head tail ih generalizing S1, {
         ext, split, 
         { intro xe1, use [x, xe1, go.finish] },
         { rintro ⟨s2, s2ins1, ⟨s2go⟩⟩, exact s2ins1 },
     }, {
-        rintro (⟨_⟩ | ⟨_, _, _, _, h⟩),
-        specialize @hyp (d.next S1 head) h,
-        rw hyp,
+        specialize @ih ((nfa_to_dfa n).next S1 head),
         ext value, split, {
-            rintro ⟨s2, s2ins1, s2go⟩,
-            subst nfadfa,
-            dsimp only [nfa_to_dfa] at *,
-            rw mem_bUnion_iff at s2ins1,
-            rcases s2ins1 with ⟨x, H, s2innext⟩,
-            use [x, H],
-            apply go.step s2innext s2go,
+            intro dfa_go,
+            rw [go_step, ih] at dfa_go,
+            rcases dfa_go with ⟨s2, s2innext, s2go⟩,
+            rw [nfa_to_dfa, mem_bUnion_iff] at s2innext,
+            rcases s2innext with ⟨x, x_in_s1, x_next⟩,
+            use [x, x_in_s1, go.step x_next s2go],
         }, {
             rintro ⟨s2, s2ins1, s2go⟩,
-            rcases s2go with ⟨_⟩ | ⟨_, _, _, wit, _, witinterm, s2go⟩,
-            subst nfadfa,
-            dsimp only [nfa_to_dfa] at *,
-            use wit,
-            rw mem_bUnion_iff,
-            use [s2, s2ins1, witinterm],
-            exact s2go,
+            rw [dfa.go_step, ih],
+            cases s2go,
+            use s2go_n,
+            split, {
+                dsimp [nfa_to_dfa],
+                rw mem_bUnion_iff,
+                use [s2, s2ins1, s2go_h],
+            }, {
+                assumption,
+            }
         },
     },
 end
@@ -161,30 +143,22 @@ begin
     letI := fQ,
     existsi [set Q, _, _, nfa_to_dfa nfa],    
     ext x,
-    dsimp,
-    have tmp : (nfa_to_dfa nfa).start = {nfa.start} := rfl,
-    rw tmp, clear tmp,
-
     split, {
-        rintro ⟨t, tgo, tterm⟩,
-        have tset := dfa.dfa_go_exists_unique (nfa_to_dfa nfa) {nfa.start} x,
-        rcases tset with ⟨tset, tseth, tsetuniq⟩,
-        use [tset, tseth],
-        use t, 
-        split, {
-            rw nfa_to_dfa_goes_to x rfl tseth,
-            use [nfa.start, tgo],
-        }, {
-            assumption,
-        }
+        rintro ⟨tset, tsetgo, tsetterm⟩,
+        use tset,
+        rw (nfa_to_dfa_goes_to x rfl),
+        simp,
+        use [nfa.start],
+        simp [nfa_to_dfa, tsetgo],
+        exact tsetterm,
     }, {
         rintro ⟨tset, tsetgo, tsetterm⟩,
-        dsimp [nfa_to_dfa] at tsetterm,
-        rcases tsetterm with ⟨t, ⟨tintset, tinterm⟩⟩,
-        use t,
-        rw (nfa_to_dfa_goes_to x rfl tsetgo) at tintset,
-        rcases tintset with ⟨ns, nssingleton, nfago⟩,
-        finish, 
+        simp only [nfa_to_dfa_goes_to x rfl, mem_set_of_eq] at tsetgo,
+        rcases tsetgo with ⟨s2, s2start, s2go⟩,
+        use [tset],
+        simp [nfa_to_dfa] at s2start,
+        subst s2start,
+        use [s2go, tsetterm],
     },
 end
 

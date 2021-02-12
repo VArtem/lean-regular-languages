@@ -97,24 +97,21 @@ begin
         rintro hw,
         induction n with n hyp generalizing w hw, {
             use list.nil,
-            simpa [list.forall_mem_nil],
+            simp only [mem_singleton_iff, one_def, pow_zero] at hw,
+            simp only [hw, list.not_mem_nil, list.join, forall_const, forall_prop_of_false, list.length, eq_self_iff_true, not_false_iff,
+  and_self],
         }, {
             rw pow_succ at hw,
             rcases hw with ⟨left, right, hleft, hright, rfl⟩,
             rcases hyp hright with ⟨l, h, rfl, rfl⟩,
-            use left :: l,
-            split, {
-                rintro x ⟨ _ | _ ⟩,
-                exacts [hleft, h _ a], 
-            },
-            simp only [list.join, list.length, eq_self_iff_true, and_self],
+            use [left :: l],
+            simpa only [hleft, true_and, list.join, forall_eq_or_imp, and_true, list.mem_cons_iff, list.length, eq_self_iff_true],
         }
     }, {
         rintro ⟨l, h, rfl, rfl⟩, 
         induction l with head tail hyp, {
             simp only [list.join, list.length, one_def, pow_zero, mem_singleton], 
         }, {
-            dsimp only [pow_succ, list.join, list.length], 
             use [head, tail.join],
             split, {
                 apply h head,
@@ -122,10 +119,9 @@ begin
             },
             split, {
                 apply hyp,
-                intros x xtail,
-                apply h,
-                simp only [list.mem_cons_iff, list.forall_mem_cons'] at *, 
-                right, exact xtail,
+                intros x hx,
+                refine (h _ _),
+                simp only [hx, list.mem_cons_iff, or_true],
             },
             refl,
         },

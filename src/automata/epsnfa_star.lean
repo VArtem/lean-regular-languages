@@ -70,7 +70,8 @@ begin
             convert epsnfa_go_trans (epsnfa_star_go_inside hleft) _,
             rw list.append_nil,
             refine go.eps _ _ go.finish,
-            simp [epsnfa_star],
+            simp only [epsnfa_star, dite_eq_ite, union_singleton],
+            simp only [mem_image, if_true, eq_self_iff_true, exists_false, mem_insert_iff, or_false, and_false],
         }
     }
 end
@@ -82,11 +83,13 @@ begin
     intro go_star,
     generalize hst : (U.start : U Q) = fi,
     rw hst at go_star,
-    induction go_star with q  head tail q nxt _ hnxt go_tail ih  _ q nxt _ hnxt go_tail ih, {
+    induction go_star,
+    case epsnfa.go.finish : {
         subst hst,
         use [list.nil, list.nil],
         simp,
-    }, {
+    }, 
+    case epsnfa.go.step : head tail q nxt f hnxt go_tail ih {
         subst hst,
         specialize ih rfl,
         rcases ih with ⟨pref, l, rfl, hpref, hlist⟩,
@@ -108,7 +111,8 @@ begin
         }, {
             exact hlist,
         }
-    }, {
+    }, 
+    case epsnfa.go.eps : tail q nxt f hnxt go_tail ih {
         subst hst,
         specialize ih rfl,
         rcases ih with ⟨pref, l, rfl, hpref, hlist⟩,
@@ -126,14 +130,18 @@ begin
             use [pref, l],
             simp, 
             rcases hpref with ⟨rfl, rfl⟩ | ⟨qnxt, rfl, qnxt_go⟩, {
-                by_cases q = e.term,
-                subst h,
-                use [go.finish, hlist], 
-                exfalso, simpa [epsnfa_star, h] using hnxt,
+                simp only [epsnfa_star, dite_eq_ite, union_singleton] at hnxt,
+                split_ifs at hnxt, {
+                    subst h,
+                    exact ⟨go.finish, λ x xl, hlist x xl⟩,
+                }, {
+                    simpa only [mem_image, exists_false, and_false] using hnxt,
+                }
             }, {
-                convert and.intro (go.eps _ _ qnxt_go) hlist,
-                by_cases q = e.term;
-                simpa [epsnfa_star, h] using hnxt,
+                refine ⟨go.eps _ _ qnxt_go, hlist⟩,
+                simp only [epsnfa_star, dite_eq_ite, union_singleton] at hnxt,
+                split_ifs at hnxt;
+                simpa only [mem_image, false_or, mem_insert_iff, exists_eq_right] using hnxt,
             }   
         }
     }

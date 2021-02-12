@@ -1,5 +1,6 @@
 import data.set.basic
 import data.set.finite
+import data.set.lattice
 import data.list.basic
 import tactic
 import languages.basic
@@ -45,7 +46,7 @@ open regex_accepts_word
 
 @[simp] def lang_of_regex (r : regex S) : set (list S) := {w : list S | regex_accepts_word r w}
 
-def regex_lang (l : set (list S)) [fintype S] := ∃ {r : regex S}, l = lang_of_regex r
+def regex_lang (l : set (list S)) := ∃ {r : regex S}, l = lang_of_regex r
 
 @[simp] lemma mem_lang_iff_accepts 
     {L : set (list S)} {r : regex S} {w : list S} 
@@ -74,6 +75,7 @@ begin
     }, {
         intro xnil, 
         convert regex_accepts_word.eps,
+        apply_instance,
     }
 end
 
@@ -92,6 +94,7 @@ begin
     }, {
         intro xone, 
         convert regex_accepts_word.one,
+        apply_instance,
     }
 end
 
@@ -109,9 +112,9 @@ begin
         left, assumption,
         right, assumption
     }, {
-        rintro x ⟨_⟩,
-        exact regex_accepts_word.union_left a,
-        exact regex_accepts_word.union_right a,
+        rintro x (hleft | hright),
+        exact regex_accepts_word.union_left hleft, 
+        exact regex_accepts_word.union_right hright,
     }, 
 end
 
@@ -126,7 +129,6 @@ theorem regex_append_is_lang_append {rl rm : regex S}
     : lang_of_regex (regex.append rl rm) = lang_of_regex rl * lang_of_regex rm :=
 begin
     apply set.subset.antisymm, {
-
         rintro x hx,
         rcases hx with _ | _ | ⟨ left, right, _, _, hleft, hright ⟩ | _ | _ | _ | _, -- fun with seven cases
         use [left, right, hleft, hright, rfl], 
@@ -215,20 +217,21 @@ begin
     rw regex_star_is_kleene_star,
 end
 
-theorem finset_bUnion_is_regex {α : Type*} {X : finset α} {P : α → set (list S)} [decidable_eq α] : 
-    (∀ c, c ∈ X → regex_lang(P c)) → regex_lang(⋃ c ∈ X, P c) :=
+theorem finset_bUnion_is_regex {α : Type*} [fintype α] {X : set α} {P : α → set (list S)} [decidable_eq α] : 
+    (∀ c ∈ X, regex_lang(P c)) → regex_lang(⋃ c ∈ X, P c) :=
 begin
+    lift X to finset α using set.finite.of_fintype X,
     apply finset.induction_on X, {
-        intro hX,
-        simp only [finset.not_mem_empty, set.Union_empty, set.Union_neg, not_false_iff],
-        exact empty_is_regex,
+        simp only [empty_is_regex, set.mem_empty_eq, set.Union_empty, finset.coe_empty, set.Union_neg, not_false_iff, forall_true_iff],
     }, {
         rintro head tail h_head ih hX,
-        rw finset.bUnion_insert,
+        rw [finset.set_bUnion_coe, finset.set_bUnion_insert],
         refine union_is_regex _ _, 
         refine hX _ (finset.mem_insert_self _ _),
         refine ih (λ c c_tail, hX c (finset.mem_insert_of_mem c_tail)),
-    }
+    },
 end
+
+example {a : Type*} [fintype a] {X : set a} : finset a := by refine finset.univ
 
 end regex

@@ -94,12 +94,18 @@ begin
                 exfalso,
                 simpa [epsnfa_append] using goappend_h,
             }
-        }, {
+        }, 
+        case epsnfa.go.eps : _ _ _ _ _ goappend_a {
             substs ha hb,
             cases goappend_n, {
                 refine go.eps _ _ (@goappend_ih rfl goappend_n rfl),
-                by_cases a = e1.term;
-                simpa [epsnfa_append, h] using goappend_h,
+                simp only [epsnfa_append, dite_eq_ite, union_singleton] at goappend_h,
+                split_ifs at goappend_h, {
+                    subst h,
+                    simpa only [mem_image, false_or, mem_insert_iff, exists_eq_right] using goappend_h,
+                }, {
+                    simpa only [mem_image, exists_eq_right] using goappend_h,
+                }
             }, {
                 -- need to prove there's no path from right to left
                 exfalso,
@@ -209,13 +215,15 @@ begin
         }, {
             -- prev in left, next in right, induction base
             use [[], goappend_tail, rfl],
-            by_cases a = e1.term, {
+            simp only [epsnfa_append, dite_eq_ite, union_singleton] at goappend_h,
+            split_ifs at goappend_h, {
                 -- good case, induction base, no contradiction
                 subst h, 
                 use go.finish,
-                simp [epsnfa_append] at goappend_h,
+                simp only [mem_image, exists_false, mem_insert_iff, or_false, and_false] at goappend_h,
                 subst goappend_h,
-                exact epsnfa_append_go_right.2 goappend_a,
+                apply epsnfa_append_go_right.2,
+                assumption,
             }, {
                 -- contradiction
                 exfalso,
@@ -237,7 +245,8 @@ begin
         dsimp at hleft hright,
         apply epsnfa_go_trans (epsnfa_append_go_left.1 hleft),
         refine go.eps _ _ (epsnfa_append_go_right.1 hright),
-        simp [epsnfa_append],
+        simp only [epsnfa_append, dite_eq_ite, union_singleton],
+        simp only [mem_image, if_true, eq_self_iff_true, exists_false, mem_insert_iff, or_false, and_false],
     }
 end
 

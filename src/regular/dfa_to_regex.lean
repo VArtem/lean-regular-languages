@@ -14,60 +14,66 @@ open languages regex dfa finset list
 
 namespace regex.from_dfa
 
-variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq S] [decidable_eq Q]
+variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq S] [decidable_eq Q] {dfa : DFA S Q}
 
-variables (set1 : set Q) (set2 : finset Q)
-
-inductive go_restr (dfa : DFA S Q) (allow : finset Q) : Q → list S → Q → Prop
+inductive go_restr (dfa : DFA S Q) (allowed : finset Q) : Q → list S → Q → Prop
 | finish {q : Q}                    : go_restr q [] q
 | last_step {ch : S} {q nxt : Q}    : nxt = dfa.next q ch → go_restr q [ch] nxt
 | step {head : S} {tail : list S} {q nxt f : Q} :
-    nxt = dfa.next q head → nxt ∈ allow → go_restr nxt tail f → go_restr q (head::tail) f
+    nxt = dfa.next q head → nxt ∈ allowed → go_restr nxt tail f → go_restr q (head::tail) f
 
-lemma go_restr_univ (dfa : DFA S Q) {a b : Q} {w : list S}
-    : go dfa a w b ↔ go_restr dfa (fintype.elems Q) a w b :=
+lemma go_restr_univ {a b : Q} {w : list S}
+    : go_restr dfa (fintype.elems Q) a w b ↔ b = go dfa a w :=
 begin
     split, {
-        intro go_dfa,
-        induction go_dfa, 
-        { exact go_restr.finish }, 
-        { refine go_restr.step rfl (finset.mem_univ _) go_dfa_ih, }
+        intro go_re,
+        induction go_re,
+        case go_restr.finish {rw go_finish},
+        case go_restr.last_step {simpa}, 
+        case go_restr.step : _ _ _ _ _ h_nxt h_allow go_prev {
+            rw [go_re_ih, go_step, h_nxt],   
+        },
     }, {
-        intro go_restr_dfa,
-        induction go_restr_dfa, 
-        { exact go.finish },
-        { subst go_restr_dfa_a, refine go.step go.finish },
-        { subst go_restr_dfa_a, refine go.step go_restr_dfa_ih },
+        intro go_dfa,
+        induction w generalizing a, {
+            cases go_dfa, exact go_restr.finish,
+        }, {
+            cases go_dfa, 
+            refine go_restr.step rfl (mem_univ _) (@w_ih (dfa.next a w_hd) rfl), 
+        }
     }
 end
 
-lemma go_restr_subset {dfa : DFA S Q} {a b : Q} {w : list S} {fs1 fs2 : finset Q} :
-    fs1 ⊆ fs2 → go_restr dfa fs1 a w b → go_restr dfa fs2 a w b :=
+lemma go_restr_insert {a b ins : Q} {w : list S} {allowlist : list Q} :
+    go_restr dfa allowlist.to_finset a w b → go_restr dfa (ins::allowlist).to_finset a w b :=
 begin
-    rintro fsub go_fs1,
-    induction go_fs1, 
-    { exact go_restr.finish },
-    { exact go_restr.last_step go_fs1_a },
-    { convert go_restr.step (go_fs1_a) (fsub go_fs1_a_1) go_fs1_ih }
+    rintro go_allowed,
+    induction go_allowed, 
+    case go_restr.finish : { exact go_restr.finish },
+    case go_restr.last_step : _ _ _ h_nxt { exact go_restr.last_step h_nxt, },
+    case go_restr.step : _ _ _ _ _ h_nxt h_allow go_prev {
+        refine go_restr.step h_nxt _ go_allowed_ih,
+        simp only [h_allow, mem_insert, or_true, to_finset_cons],
+    }
 end
 
-lemma go_restr_append {dfa : DFA S Q} {a b c : Q} {left right : list S} {allowed : finset Q} :
+lemma go_restr_append {a b c : Q} {left right : list S} {allowed : finset Q} :
     b ∈ allowed → go_restr dfa allowed a left b → go_restr dfa allowed b right c →
     go_restr dfa allowed a (left ++ right) c :=
 begin
     rintro b_allowed go_ab go_bc,
-    induction go_ab, {
-        exact go_restr_subset (subset.refl _) go_bc,
-    }, {
-        subst go_ab_a,
-        exact go_restr.step rfl b_allowed go_bc,
-    }, {
+    induction go_ab, 
+    case go_restr.finish : { simp only [go_bc, nil_append] }, 
+    case go_restr.last_step : _ _ _ h_nxt {
+        exact go_restr.step h_nxt b_allowed go_bc,
+    },
+    case go_restr.step : _ _ _ _ _ h_nxt h_allow go_prev {
         replace go_bc := go_ab_ih b_allowed go_bc,
-        refine go_restr.step go_ab_a go_ab_a_1 go_bc,
+        refine go_restr.step h_nxt h_allow go_bc, 
     }
 end
 
-lemma go_restr_list_join {dfa : DFA S Q} {a : Q} {l : list (list S)} {allowed : finset Q} :
+lemma go_restr_list_join {a : Q} {l : list (list S)} {allowed : finset Q} :
     a ∈ allowed → (∀ x, x ∈ l → go_restr dfa allowed a x a) → go_restr dfa allowed a (join l) a :=
 begin
     rintro a_allowed hl,
@@ -118,23 +124,23 @@ begin
     }, {
         intro hw,
         cases hw, {
-            replace hw := ih hw,
-            refine go_restr_subset _ hw,
-            simp [subset_insert], 
+            exact go_restr_insert (ih hw),
         }, {
             rcases hw with ⟨_, right, ⟨left, mid, hleft, hmid, rfl⟩, hright, rfl⟩,
             replace hleft := ih hleft,
             replace hright := ih hright,
             rw [star_eq_list_join] at hmid,
             rcases hmid with ⟨l, hlist, rfl⟩,
-            have h_head : head ∈ (cons head tail).to_finset, by simp only [mem_insert, true_or, eq_self_iff_true, to_finset_cons],
-            have h_subset : tail.to_finset ⊆ (cons head tail).to_finset, by simp only [subset_insert, to_finset_cons],
+
+            have h_head : head ∈ (head::tail).to_finset, by simp only [mem_insert, true_or, eq_self_iff_true, to_finset_cons],
             
-            refine go_restr_append h_head _ (go_restr_subset h_subset hright),
-            refine go_restr_append h_head (go_restr_subset h_subset hleft) _,
-            refine go_restr_list_join h_head _,
-            rintro x xtail,
-            apply go_restr_subset h_subset (ih (hlist x xtail)),
+            refine go_restr_append h_head _ _,
+            refine go_restr_append h_head _ _,
+            all_goals {try {apply go_restr_list_join}, try {apply go_restr_insert}, try {assumption}},
+            
+            rintro x xl,
+            specialize ih (hlist x xl),
+            exact go_restr_insert ih,
         }
     }
 end
@@ -209,14 +215,17 @@ begin
     intro go_ab,
     induction allowed with head tail ih generalizing a b w, {
         dsimp [FW, all_edges],
-        cases go_ab, {
+        cases go_ab, 
+        case go_restr.finish : {
             simp, 
-        }, {
+        },
+        case go_restr.last_step : _ _ _ go_ab_nxt { 
             split_ifs; {
-                simp, use [go_ab_ch], simp [go_ab_a.symm],
+                simp, use [go_ab_ch], simp [go_ab_nxt], 
             },                              
-        }, {
-            simpa only [to_finset_nil, not_mem_empty] using go_ab_a_1,
+        }, 
+        case go_restr.step : _ _ _ _ _ go_ab_nxt go_ab_allow go_ab_prev {
+            simpa only [to_finset_nil, not_mem_empty] using go_ab_allow, 
         }
     }, {
         dsimp [FW, all_edges],
@@ -243,8 +252,7 @@ begin
         try {apply union_is_regex _ eps_is_regex}; {
             rw [all_edges, ← set.bUnion_univ],
             lift (set.univ : set S) to finset S using set.finite.of_fintype set.univ,
-            apply finset_bUnion_is_regex _,
-            exact _inst_3,
+            apply finset_bUnion_is_regex,
             intros c cx,
             by_cases hnext : dfa.next a c = b, {
                 simp [hnext],
@@ -268,20 +276,20 @@ end
 
 
 lemma FW_is_DFA {dfa : DFA S Q} {allowed : list Q} (hQ : allowed.to_finset = fintype.elems Q) :
-    (⋃ c ∈ dfa.term, FW dfa dfa.start c allowed) = lang_of_dfa dfa :=
+   (⋃ c ∈ dfa.term, FW dfa dfa.start c allowed) = lang_of_dfa dfa :=
 begin
     apply set.subset.antisymm, {
         apply set.bUnion_subset,
         rintro x x_term w w_fw,
-        refine ⟨x, _, x_term⟩,
-        rw go_restr_univ,
-        rw ← hQ,
-        apply FW_to_go_restr w_fw,
+        replace w_fw := FW_to_go_restr w_fw,
+        rw [hQ, go_restr_univ] at w_fw,
+        rw w_fw at x_term,
+        exact x_term,
     }, {
-        rintro w ⟨t, w_go, t_term⟩,
-        refine set.mem_bUnion t_term _,
+        rintro w hw,
+        refine set.mem_bUnion hw _,
         apply FW_from_go_restr,
-        rwa [hQ, ← go_restr_univ],
+        rw [hQ, go_restr_univ],
     }
 end
 
@@ -292,7 +300,7 @@ begin
     letI := fQ,
     rcases to_finset_surjective (fintype.elems Q) with ⟨Qlist, hQ⟩,
     rw ← FW_is_DFA hQ,
-    lift dfa.term to finset Q using set.finite.of_fintype dfa.term, 
+
     apply finset_bUnion_is_regex,
     rintro c cx,
     exact FW_is_regex,

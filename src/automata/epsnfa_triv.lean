@@ -60,11 +60,11 @@ begin
         }
     }, {
         rintro hw,
-        refine go.eps U.finish _ _,
-        simp [epsnfa_eps],
         rw [mem_singleton_iff] at hw,
-        rw hw,
-        exact go.finish,
+        subst hw,
+        rw [mem_of_epsnfa_iff, epsnfa_eps],
+        refine go.eps U.finish _ go.finish,
+        simp only [mem_singleton],
     }
 end
 

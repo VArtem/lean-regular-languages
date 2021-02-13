@@ -252,10 +252,9 @@ end
 
 theorem append_is_epsnfa {L M : set (list S)}: epsnfa_lang L → epsnfa_lang M → epsnfa_lang (L * M) :=
 begin
-    rintro ⟨Ql, fQl, dQl, enl, langl⟩ ⟨Qm, fQm, dQm, enm, langm⟩,
+    rintro ⟨Ql, fQl, dQl, enl, rfl⟩ ⟨Qm, fQm, dQm, enm, rfl⟩,
     resetI,
     existsi [U Ql Qm, _, _, epsnfa_append enl enm],   
-    substs langl langm,
     exact epsnfa_append_correct enl enm,
 end
 

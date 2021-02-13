@@ -153,7 +153,7 @@ end
 
 
 lemma go_restr_split {dfa : DFA S Q} {a b s : Q} {allowed : list Q} {w : list S} : 
-    go_restr dfa (s::allowed : list Q).to_finset a w b → 
+    go_restr dfa (s :: allowed).to_finset a w b → 
     (go_restr dfa allowed.to_finset a w b) ∨
     (∃ pref (inf : list (list S)) suf, 
         go_restr dfa allowed.to_finset a pref s ∧ 
@@ -162,22 +162,25 @@ lemma go_restr_split {dfa : DFA S Q} {a b s : Q} {allowed : list Q} {w : list S}
         pref ++ inf.join ++ suf = w) :=
 begin
     intro go_ab,
-    induction go_ab with _  _ _ _ nxt_eq  head tail _ nxt _ nxt_eq allow_nxt go_tail ih, {
+    induction go_ab,
+    case finish {
         left, exact go_restr.finish,
-    }, {
-        left, exact go_restr.last_step nxt_eq,
-    }, {
+    },
+    case last_step : ch q nxt h_nxt {
+        left, exact go_restr.last_step h_nxt,
+    }, 
+    case step : head tail q nxt f h_nxt h_allow go_tail ih {
         by_cases nxt = s, {
-            substs h,
+            subst h,
             right,
             cases ih, {
                 use [[head], [], tail],
-                use [go_restr.last_step nxt_eq, forall_mem_nil _, ih],
+                use [go_restr.last_step h_nxt, forall_mem_nil _, ih],
                 simp only [join, eq_self_iff_true, and_self, singleton_append],
             }, {
                 rcases ih with ⟨pref, inf, suf, go_pref, go_inf, go_suf, rfl⟩,
                 use [[head], pref :: inf, suf],
-                use [go_restr.last_step nxt_eq],
+                use [go_restr.last_step h_nxt],
                 split, {
                     rintro x hx,
                     cases hx, {
@@ -192,15 +195,15 @@ begin
                 }
             }
         }, {
-            simp only [h, mem_insert, false_or, to_finset_cons] at allow_nxt,
+            simp only [h, mem_insert, false_or, to_finset_cons] at h_allow,
             cases ih, {
                 left,
-                refine go_restr.step nxt_eq allow_nxt ih,
+                refine go_restr.step h_nxt h_allow ih,
             }, {
                 right,
                 rcases ih with ⟨pref, inf, suf, go_pref, go_inf, go_suf, rfl⟩,
                 use [head :: pref, inf, suf],
-                use [go_restr.step nxt_eq allow_nxt go_pref],
+                use [go_restr.step h_nxt h_allow go_pref],
                 use [go_inf, go_suf],
                 simp only [cons_append, eq_self_iff_true, and_self],
             }
@@ -243,7 +246,7 @@ begin
     }
 end 
 
-lemma FW_is_regex {dfa : DFA S Q} {a b : Q} {allowed : list Q} :
+lemma FW_is_regex {dfa : DFA S Q} (a b : Q) {allowed : list Q} :
     regex_lang (FW dfa a b allowed) :=
 begin
     induction allowed with head tail ih generalizing a b, {
@@ -265,10 +268,10 @@ begin
         },
     }, {
         rw FW,
-        have rAB := @ih a b,
-        have rAH := @ih a head,
-        have rHH := @ih head head,
-        have rHB := @ih head b,
+        have rAB := ih a b,
+        have rAH := ih a head,
+        have rHH := ih head head,
+        have rHB := ih head b,
         apply union_is_regex rAB,
         apply append_is_regex (append_is_regex rAH (star_is_regex rHH)) rHB,
     }
@@ -303,7 +306,7 @@ begin
 
     apply finset_bUnion_is_regex,
     rintro c cx,
-    exact FW_is_regex,
+    exact FW_is_regex dfa.start c,
 end
 
 end regex.from_dfa

@@ -31,13 +31,15 @@ def nfa_lang (lang : set (list S)) :=
 lemma nfa_go_append {nfa : NFA S Q} {a b c : Q} {left right : list S}:
     go nfa a left b → go nfa b right c → go nfa a (left ++ right) c :=
 begin
-    induction left with head tail hyp generalizing a, {
+    induction left generalizing a, 
+    case list.nil : {
         rintro ⟨_⟩ hbc,
         exact hbc,
-    }, {
+    }, 
+    case list.cons : head tail ih {
         rintro (⟨_⟩ | ⟨head, tail, _, nxt, _, h, hab⟩) hbc,
-        specialize @hyp nxt,
-        exact go.step h (hyp hab hbc),
+        specialize @ih nxt,
+        exact go.step h (ih hab hbc),
     }
 end
 
@@ -53,9 +55,11 @@ lemma dfa_to_nfa_goes_to
 begin
     split, {
         intro go_nfa,
-        induction go_nfa with q head tail q nxt f hnxt go_tail ih, {
+        induction go_nfa, 
+        case nfa.go.finish {
             rw dfa.go_finish,
-        }, {
+        }, 
+        case nfa.go.step : head tail q nxt f hnxt go_tail ih {
             rw dfa.go_step,
             convert ih,
             simp only [dfa_to_nfa, mem_singleton_iff] at hnxt,
@@ -63,9 +67,11 @@ begin
         }
     }, {
         intro go_dfa,
-        induction w with head tail ih generalizing q, {
+        induction w generalizing q, 
+        case list.nil {
             cases go_dfa, exact go.finish,
-        }, {
+        }, 
+        case list.cons : head tail ih {
             cases go_dfa,
             specialize @ih (d.next q head) go_dfa,
             refine go.step _ ih,

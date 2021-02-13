@@ -58,7 +58,6 @@ begin
     }
 end
 
-
 lemma pumping_lemma :
     dfa_lang L → 
         (∃ (n : ℕ), ∀ w, w ∈ L → n ≤ length w →

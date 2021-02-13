@@ -60,7 +60,6 @@ begin
   apply mem_append_right _ hb,
 end
 
-
 lemma repeat_suffix_of_append_repeat {A : Type*} {n m k : ℕ} {a b : A} : 
   k < n → repeat a n <:+ repeat b m ++ repeat a k → a = b :=
 begin
@@ -69,14 +68,13 @@ begin
   rcases happend with ⟨a', ⟨h1, h2⟩⟩ | ⟨c', ⟨h1, h2⟩⟩, {
     have repeat_a : a' = repeat a a'.length := prefix_of_repeat ⟨repeat a k, h2.symm⟩,
     have repeat_b : a' = repeat b a'.length := suffix_of_repeat ⟨beg, h1.symm⟩,
+    apply_fun length at h2,
     have a'_length_pos : 0 < a'.length, from by {
-      have h2_length := congr_arg length h2,
-      simp only [length_repeat, length_append] at h2_length,
-      rw h2_length at hnk,
-      rwa [lt_add_iff_pos_left _] at hnk,
+      simp only [length_repeat, length_append] at h2,
+      rwa [h2, lt_add_iff_pos_left _] at hnk,
     },
     cases a', {
-      rwa length_pos_iff_ne_nil at a'_length_pos,
+      rw length_pos_iff_ne_nil at a'_length_pos,
       contradiction,
     }, {
       nth_rewrite 0 repeat_a at repeat_b,
@@ -84,8 +82,8 @@ begin
       exact repeat_b.1,
     }
   }, {
-    have tmp := congr_arg length h2,
-    rw [length_append, length_repeat, length_repeat] at tmp,
+    apply_fun length at h2,
+    rw [length_append, length_repeat, length_repeat] at h2,
     exfalso,
     linarith,
   },
@@ -111,6 +109,6 @@ begin
   }
 end
 
-lemma suffix_trans {a b c : list S} :
+@[trans] lemma suffix_trans {a b c : list S} :
   a <:+ b → b <:+ c → a <:+ c := 
-  λ ⟨x, hx⟩ ⟨y, hy⟩, ⟨y ++ x, by rwa [←hx, ←append_assoc] at hy,⟩
+  λ ⟨x, hx⟩ ⟨y, hy⟩, ⟨y ++ x, by rwa [append_assoc, hx],⟩

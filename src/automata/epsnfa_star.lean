@@ -161,7 +161,7 @@ begin
     }
 end
 
-theorem epsnfa_star_correct (e : epsNFA S Q) :
+theorem epsnfa_star_correct {e : epsNFA S Q} :
     lang_of_epsnfa (epsnfa_star e) = kleene_star (lang_of_epsnfa e) :=
 begin
     apply subset.antisymm, {
@@ -176,10 +176,10 @@ end
 
 theorem star_is_epsnfa {L : set (list S)}: epsnfa_lang L → epsnfa_lang (kleene_star L) :=
 begin
-    rintro ⟨Q, fQ, dQ, enl, langl⟩,
+    rintro ⟨Q, fQ, dQ, enl, rfl⟩,
     letI := fQ,
     existsi [U Q, _, _, epsnfa_star enl],
-    rwa [← langl, epsnfa_star_correct],
+    exact epsnfa_star_correct,
 end
 
 end epsnfa.star

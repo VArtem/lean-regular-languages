@@ -43,6 +43,29 @@ begin
     }
 end
 
+lemma dfa_go_append' {dfa : DFA S Q} {a : Q} {left right : list S}:
+    go dfa a (left ++ right) = go dfa (go dfa a left) right :=
+begin
+    induction left with head tail ih generalizing a, {
+        rw [go_finish, nil_append],
+    }, {
+        rw [cons_append, go_step, go_step],
+        exact @ih (dfa.next a head),
+    }
+end
+
+lemma dfa_go_append_iff {dfa : DFA S Q} {a c : Q} {left right : list S}:
+    (∃ b, go dfa a left = b ∧ go dfa b right = c) ↔ go dfa a (left ++ right) = c :=
+begin
+    induction left with head tail ih generalizing a, {
+        split; simp,
+    }, {
+        specialize @ih (dfa.next a head),
+        refine ih,
+    }
+end
+
+
 lemma eq_next_goes_to_iff {q : Q}
     (d1 d2 : DFA S Q) (h : d1.next = d2.next) (w : list S) 
     : go d1 q w = go d2 q w := 
@@ -59,7 +82,8 @@ end
     {L : set (list S)} {dfa : DFA S Q} {w : list S} (autl : L = lang_of_dfa dfa) 
     : w ∈ L ↔ dfa_accepts_word dfa w := 
 begin
-    split; finish,
+    subst autl,
+    split; simp,
 end
 
 def compl_dfa (dfa : DFA S Q) : DFA S Q := {
@@ -81,11 +105,7 @@ begin
             right,
             dsimp,
             rw ← eq_next_goes_to_iff dfa (compl_dfa dfa) rfl,
-            simpa [compl_dfa],
-
-            -- dsimp [compl_dfa, set.compl_eq_univ_sdiff],
-            -- rw [set.mem_sdiff],
-            -- use [finset.mem_univ (go dfa dfa.start x), h],
+            simpa only,
         }
     }, {
         rw [subset_compl_iff_disjoint, eq_empty_iff_forall_not_mem],
@@ -93,10 +113,7 @@ begin
         dsimp [lang_of_dfa] at *,
         rw eq_next_goes_to_iff dfa (compl_dfa dfa) rfl at x_dfa,
         dsimp [compl_dfa] at *,
-        simpa,
-        -- rw [finset.compl_eq_univ_sdiff, finset.mem_sdiff] at x_compl,
-        -- cases x_compl,
-        -- contradiction,
+        exact x_compl x_dfa,
     }, 
 end
 

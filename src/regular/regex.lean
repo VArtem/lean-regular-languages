@@ -221,17 +221,16 @@ theorem finset_bUnion_is_regex {α : Type*} [fintype α] {X : set α} {P : α �
     (∀ c ∈ X, regex_lang(P c)) → regex_lang(⋃ c ∈ X, P c) :=
 begin
     lift X to finset α using set.finite.of_fintype X,
+    rw finset.set_bUnion_coe,
     apply finset.induction_on X, {
-        simp only [empty_is_regex, set.mem_empty_eq, set.Union_empty, finset.coe_empty, set.Union_neg, not_false_iff, forall_true_iff],
+        simp only [empty_is_regex, finset.not_mem_empty, set.Union_empty, set.Union_neg, not_false_iff, forall_true_iff],
     }, {
         rintro head tail h_head ih hX,
-        rw [finset.set_bUnion_coe, finset.set_bUnion_insert],
+        rw finset.set_bUnion_insert,
         refine union_is_regex _ _, 
         refine hX _ (finset.mem_insert_self _ _),
         refine ih (λ c c_tail, hX c (finset.mem_insert_of_mem c_tail)),
     },
 end
-
-example {a : Type*} [fintype a] {X : set a} : finset a := by refine finset.univ
 
 end regex

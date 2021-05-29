@@ -6,7 +6,7 @@ import tactic
 import automata.dfa
 
 namespace nfa
-open set list dfa finset
+open set list DFA finset
 
 variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
 
@@ -50,17 +50,17 @@ def dfa_to_nfa (dfa : DFA S Q) : NFA S Q := {
 }
 
 lemma dfa_to_nfa_goes_to
-    {d : dfa.DFA S Q} {w : list S} {q r : Q}
-    : go (dfa_to_nfa d) q w r ↔ dfa.go d q w = r := 
+    {d : DFA S Q} {w : list S} {q r : Q}
+    : go (dfa_to_nfa d) q w r ↔ DFA.go d q w = r := 
 begin
     split, {
         intro go_nfa,
         induction go_nfa, 
         case nfa.go.finish {
-            rw dfa.go_finish,
+            rw DFA.go_finish,
         }, 
         case nfa.go.step : head tail q nxt f hnxt go_tail ih {
-            rw dfa.go_step,
+            rw DFA.go_step,
             convert ih,
             simp only [dfa_to_nfa, mem_singleton_iff] at hnxt,
             exact hnxt.symm,
@@ -91,7 +91,7 @@ begin
     split, {
         rintro dfa_go,
         dsimp at dfa_go,
-        use [dfa.go d (d.start) x],
+        use [DFA.go d (d.start) x],
         rw dfa_to_nfa_goes_to,
         use [rfl, dfa_go],        
     }, {
@@ -110,8 +110,8 @@ noncomputable def nfa_to_dfa (nfa : NFA S Q) : DFA S (set Q) := {
 }
 
 lemma nfa_to_dfa_goes_to
-    {n : NFA S Q} {d : dfa.DFA S (set Q)} (w : list S) {S1 : set Q}
-    : d = nfa_to_dfa n → dfa.go d S1 w = {e2 : Q | ∃ (s2 : Q), s2 ∈ S1 ∧ go n s2 w e2} := 
+    {n : NFA S Q} {d : DFA S (set Q)} (w : list S) {S1 : set Q}
+    : d = nfa_to_dfa n → DFA.go d S1 w = {e2 : Q | ∃ (s2 : Q), s2 ∈ S1 ∧ go n s2 w e2} := 
 begin
     rintro rfl,
     induction w with head tail ih generalizing S1, {
@@ -129,7 +129,7 @@ begin
             use [x, x_in_s1, go.step x_next s2go],
         }, {
             rintro ⟨s2, s2ins1, s2go⟩,
-            rw [dfa.go_step, ih],
+            rw [DFA.go_step, ih],
             cases s2go,
             use s2go_n,
             split, {

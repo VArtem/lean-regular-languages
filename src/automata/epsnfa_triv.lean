@@ -8,41 +8,32 @@ open set epsnfa languages
 
 namespace epsnfa.triv
 
-variables {S : Type} [fintype S]
+variables {S : Type} [fintype S] [decidable_eq S]
 
-@[derive fintype, derive decidable_eq]
-inductive U : Type
-| start : U
-| finish : U
-
-def epsnfa_empty : epsNFA S U := {
-    start := U.start,
-    term := U.finish,
+def epsnfa_empty : epsNFA S bool := {
+    start := ff,
+    term := tt,
     next := λ q c, ∅, 
     eps := λ q, ∅,
 }
 
-theorem epsnfa_empty_eq : lang_of_epsnfa (epsnfa_empty : epsNFA S U) = ∅ :=
+theorem epsnfa_empty_eq : lang_of_epsnfa (epsnfa_empty : epsNFA S _) = ∅ :=
 begin
     rw eq_empty_iff_forall_not_mem, 
     rintro x (_ | ⟨_, _, _, _, _, hnxt, _⟩ | ⟨_, _, _, _, hnxt, _⟩);
     simpa [epsnfa_empty] using hnxt,
 end
 
-theorem empty_is_epsnfa_lang : epsnfa_lang (∅ : set (list S)) := by exactI ⟨U, _, _, epsnfa_empty, epsnfa_empty_eq⟩
+theorem empty_is_epsnfa_lang : epsnfa_lang (∅ : set (list S)) := by exactI ⟨bool, _, _, epsnfa_empty, epsnfa_empty_eq⟩
 
-def epsnfa_eps : epsNFA S U := {
-    start := U.start,
-    term := U.finish,
+def epsnfa_eps : epsNFA S bool := {
+    start := ff,
+    term := tt,
     next := λ q c, ∅, 
-    eps := λ q, begin
-        cases q,
-        exact {U.finish},
-        exact ∅,
-    end
+    eps := bool.rec {tt} ∅
 }
 
-theorem epsnfa_eps_eq : lang_of_epsnfa (epsnfa_eps : epsNFA S U) = {[]} :=
+theorem epsnfa_eps_eq : lang_of_epsnfa (epsnfa_eps : epsNFA S _) = {[]} :=
 begin
     ext w, split, {
         rintro hw,
@@ -62,24 +53,17 @@ begin
         rintro hw,
         rw [mem_singleton_iff] at hw,
         subst hw,
-        rw [mem_of_epsnfa_iff, epsnfa_eps],
-        refine go.eps U.finish _ go.finish,
-        simp only [mem_singleton],
+        refine go.eps _ (go.finish),
+        simp only [epsnfa_eps, mem_singleton],
     }
 end
 
-theorem eps_is_epsnfa_lang : epsnfa_lang ({[]} : set (list S)) :=  by exactI ⟨U, _, _, epsnfa_eps, epsnfa_eps_eq⟩
+theorem eps_is_epsnfa_lang : epsnfa_lang ({[]} : set (list S)) :=  by exactI ⟨bool, _, _, epsnfa_eps, epsnfa_eps_eq⟩
 
-def epsnfa_one (char : S) : epsNFA S U := {
-    start := U.start,
-    term := U.finish,
-    next := λ q c, begin
-        cases q,
-        by_cases c = char,
-            exact {U.finish},
-            exact ∅,
-        exact ∅,
-    end,
+def epsnfa_one (char : S) : epsNFA S bool := {
+    start := ff,
+    term := tt,
+    next := λ q c, bool.rec_on q (if (c = char) then {tt} else ∅) ∅,
     eps := λ q, ∅
 }
 
@@ -108,13 +92,13 @@ begin
         rw [mem_singleton_iff] at hw,
         subst hw,
         refine go.step _ go.finish,
-        simp only [epsnfa_one, dite_eq_ite],
-        simp only [if_true, eq_self_iff_true, mem_singleton], 
+        simp [epsnfa_one],
+        simp only [if_true, eq_self_iff_true, mem_singleton],
     }
 end
 
 
 theorem one_is_epsnfa_lang {char : S} : epsnfa_lang ({[char]} : set (list S)) := 
-    by exactI ⟨U, _, _, epsnfa_one char, epsnfa_one_eq⟩
+    by exactI ⟨bool, _, _, epsnfa_one char, epsnfa_one_eq⟩
 
 end epsnfa.triv

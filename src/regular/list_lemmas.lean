@@ -3,7 +3,6 @@ import tactic
 
 open list
 
-
 variables {S : Type*} {w : list S}
 
 lemma drop_of_take_of_lt_ne_nil {x y : ℕ} : 
@@ -70,8 +69,8 @@ begin
     have repeat_b : a' = repeat b a'.length := suffix_of_repeat ⟨beg, h1.symm⟩,
     apply_fun length at h2,
     have a'_length_pos : 0 < a'.length, from by {
-      simp only [length_repeat, length_append] at h2,
-      rwa [h2, lt_add_iff_pos_left _] at hnk,
+      simp at h2,
+      linarith,
     },
     cases a', {
       rw length_pos_iff_ne_nil at a'_length_pos,
@@ -108,7 +107,3 @@ begin
     subst h2,
   }
 end
-
-@[trans] lemma suffix_trans {a b c : list S} :
-  a <:+ b → b <:+ c → a <:+ c := 
-  λ ⟨x, hx⟩ ⟨y, hy⟩, ⟨y ++ x, by rwa [append_assoc, hx],⟩

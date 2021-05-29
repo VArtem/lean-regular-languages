@@ -8,7 +8,7 @@ import automata.epsnfa_append
 import automata.epsnfa_star
 import automata.epsnfa_triv
 
-open languages regex dfa epsnfa
+open languages regex DFA epsnfa
 
 namespace regex.to_dfa
 

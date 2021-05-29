@@ -15,11 +15,13 @@ structure epsNFA (S : Type) (Q : Type) [fintype Q] [decidable_eq Q] :=
 variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q] {enfa : epsNFA S Q}
 
 inductive go (enfa : epsNFA S Q) : Q → list S → Q → Prop
-| finish {q} : go q [] q
-| step   : Π {head : S} {tail : list S} {q n f : Q} (h : n ∈ enfa.next q head),
-    go n tail f → go q (head::tail) f 
-| eps    : Π {tail : list S} {q : Q} (n : Q) {f : Q} (h : n ∈ enfa.eps q),
-    go n tail f → go q tail f
+| finish {q} : 
+    go q [] q
+| step {hd tl q n f} (h : n ∈ enfa.next q hd) :
+    go n tl f → 
+    go q (hd::tl) f 
+| eps {tl q n f} (h : n ∈ enfa.eps q):
+    go n tl f → go q tl f
 
 @[simp] def epsnfa_accepts_word (enfa : epsNFA S Q) (w : list S) := go enfa enfa.start w enfa.term
 
@@ -39,7 +41,7 @@ begin
     induction hab with q  head tail q n f h prev ih  tail q n f h prev ih, 
     { exact hfc }, 
     { apply go.step h (ih hfc) },
-    { apply go.eps _ h (ih hfc) },
+    { apply go.eps h (ih hfc) },
 end
 
 lemma epsnfa_go_exists_cons {a d : Q} 
@@ -55,7 +57,7 @@ begin
         use [q, n, go.finish, h, prev],
     }, {
         rcases ih clr with ⟨b, c, eps_ab, next_bc, tail_cd⟩,
-        use [b, c, go.eps _ h eps_ab, next_bc, tail_cd],
+        use [b, c, go.eps h eps_ab, next_bc, tail_cd],
     }
 end
 
@@ -136,37 +138,26 @@ begin
     exact epsnfa_to_nfa_accepts_iff_accepts enf x enf.start rfl,    
 end
 
-theorem epsnfa_to_dfa_eq {L : set (list S)} : epsnfa_lang L → dfa.dfa_lang L := 
+theorem epsnfa_to_dfa_eq {L : set (list S)} : epsnfa_lang L → DFA.dfa_lang L := 
     nfa.nfa_to_dfa_eq ∘ epsnfa_to_nfa_eq
 
 end epsnfa_to_nfa
 
 section nfa_to_epsnfa
 
-@[derive fintype, derive decidable_eq]
-inductive U (Q : Type) [fintype Q] [decidable_eq Q] : Type
-| inside : Q → U
-| finish : U
+open option
 
-def nfa_to_epsnfa (nfa : nfa.NFA S Q) : epsNFA S (U Q) := {
-    start := U.inside nfa.start,
-    term := U.finish,
-    next := λ q c, begin
-        cases q,
-        exact U.inside '' nfa.next q c,
-        exact ∅,
-    end,
-    eps := λ q, begin
-        cases q,
-        by_cases q ∈ nfa.term,
-        exact {U.finish},
-        exact ∅,
-        exact ∅,
-    end,
+variables (n : nfa.NFA S Q) [decidable_pred n.term] 
+
+def nfa_to_epsnfa : epsNFA S (option Q) := {
+    start := some n.start,
+    term := none,
+    next := λ q c, option.cases_on q ∅ (λ q', some '' n.next q' c),
+    eps := λ q, option.cases_on q ∅ (λ q', if q' ∈ n.term then {none} else ∅),
 }
 
-lemma nfa_to_epsnfa_go_from_finish (n : nfa.NFA S Q) {en : epsNFA S (U Q)} {w : list S} {fi : U Q}
-    : en = nfa_to_epsnfa n → (go en (U.finish) w fi) → w = [] :=
+lemma nfa_to_epsnfa_go_from_finish {en : epsNFA S (option Q)} {w : list S} {fi : option Q}
+    : en = nfa_to_epsnfa n → (go en none w fi) → w = [] :=
 begin
     rintro rfl (⟨⟩ | ⟨_, _, _, _, _, nxt⟩ | ⟨_, _, _, _, nxt⟩), 
     { refl, },
@@ -175,14 +166,14 @@ begin
 end
 
 lemma nfa_to_epsnfa_accepts_iff_accepts
-    (n : nfa.NFA S Q) {en : epsNFA S (U Q)} (w : list S) (st : Q)
-    : en = nfa_to_epsnfa n → (go en (U.inside st) w U.finish ↔ ∃ t : Q, nfa.go n st w t ∧ t ∈ n.term) :=
+    {en : epsNFA S (option Q)} (w : list S) (st : Q)
+    : en = nfa_to_epsnfa n → (go en (some st) w none ↔ ∃ t : Q, nfa.go n st w t ∧ t ∈ n.term) :=
 begin
     rintro rfl,
     split, {
         intro go_enfa,
-        generalize hst : U.inside st = ust,
-        generalize hfi : (U.finish : U Q) = ufi,
+        generalize hst : some st = ust,
+        generalize hfi : (none : option Q) = ufi,
         rw [hst, hfi] at go_enfa,
         induction go_enfa generalizing st, {
             subst hfi,
@@ -190,38 +181,38 @@ begin
         }, {
             substs hst hfi,
             cases go_enfa_n, {
+                simpa [nfa_to_epsnfa] using go_enfa_h,
+            }, {
                 specialize go_enfa_ih rfl go_enfa_n rfl,
                 rcases go_enfa_ih with ⟨t, t_go, t_term⟩,
                 simp [nfa_to_epsnfa] at go_enfa_h,
                 use [t, nfa.go.step go_enfa_h t_go, t_term],
-            }, {
-                simpa [nfa_to_epsnfa] using go_enfa_h,
             }
         }, {
             substs hst hfi,
             simp only [forall_prop_of_true] at go_enfa_ih,
             cases go_enfa_n, {
                 simp [nfa_to_epsnfa] at go_enfa_h,
-                split_ifs at go_enfa_h;
-                simpa only [mem_empty_eq] using go_enfa_h,
-            }, {
-                simp [nfa_to_epsnfa] at go_enfa_h,
                 split_ifs at go_enfa_h, {
-                    suffices tail_nil : go_enfa_tail = [],
+                    suffices tail_nil : go_enfa_tl = [],
                     subst tail_nil, 
                     use [st, nfa.go.finish, h],
                     refine nfa_to_epsnfa_go_from_finish n rfl _,
-                    exact U.finish,
+                    exact none,
                     assumption,
                 }, {
                     simpa [nfa_to_epsnfa, h] using go_enfa_h,
                 }
-            }
+            }, {
+                simp [nfa_to_epsnfa] at go_enfa_h,
+                split_ifs at go_enfa_h,
+                all_goals {simpa only [mem_empty_eq] using go_enfa_h},
+            }, 
         }
     }, {
         rintro ⟨t, t_go, t_term⟩, 
         induction t_go, {
-            refine go.eps _ _ go.finish,
+            refine go.eps _ go.finish,
             simp only [nfa_to_epsnfa, dite_eq_ite],
             simp only [t_term, if_true, mem_singleton],
         }, {
@@ -234,13 +225,15 @@ end
 theorem nfa_to_epsnfa_eq {L : set (list S)} : nfa.nfa_lang L → epsnfa_lang L :=
 begin
     rintro ⟨Q, fQ, dQ, nfa, rfl⟩,
-    letI := fQ,
-    existsi [U Q, _, _, nfa_to_epsnfa nfa],
+    letI := dQ,
+    have tmp : decidable_pred nfa.term := by sorry,
+    letI := tmp,
+    refine ⟨option Q, _, _, nfa_to_epsnfa nfa, _⟩,
     ext x,
     exact nfa_to_epsnfa_accepts_iff_accepts nfa x nfa.start rfl,
 end
 
-theorem dfa_to_epsnfa_eq {L : set (list S)} : dfa.dfa_lang L → epsnfa_lang L := 
+theorem dfa_to_epsnfa_eq {L : set (list S)} : DFA.dfa_lang L → epsnfa_lang L := 
     nfa_to_epsnfa_eq ∘ nfa.dfa_to_nfa_eq
 
 end nfa_to_epsnfa

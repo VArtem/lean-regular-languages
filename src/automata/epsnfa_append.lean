@@ -10,41 +10,28 @@ namespace epsnfa.append
 
 variables {S Q Q1 Q2 : Type} [fintype S] [fintype Q1] [fintype Q2] [decidable_eq Q1] [decidable_eq Q2]
 
-@[derive fintype, derive decidable_eq]
-inductive U (Q1 Q2 : Type) [fintype Q1] [fintype Q2] [decidable_eq Q1] [decidable_eq Q2] : Type
-| left : Q1 → U
-| right : Q2 → U
-
-def epsnfa_append (e1 : epsNFA S Q1) (e2 : epsNFA S Q2) : epsNFA S (U Q1 Q2) := {
-    start := U.left e1.start,
-    term := U.right e2.term,
-    next := λ q c, begin
-        cases q, 
-        { exact U.left '' (e1.next q c) },
-        { exact U.right '' (e2.next q c) }, 
-    end,
-    eps := λ q, begin
-        cases q, {
-            by_cases q = e1.term,
-            exact (U.left '' (e1.eps q)) ∪ {U.right e2.start},
-            exact (U.left '' (e1.eps q)),
-        }, { 
-            exact U.right '' e2.eps q,
-        },
-    end
+def epsnfa_append (e1 : epsNFA S Q1) (e2 : epsNFA S Q2) : epsNFA S (Q1 ⊕ Q2) := {
+    start := sum.inl e1.start,
+    term := sum.inr e2.term,
+    next := λ q c, sum.cases_on q (λ r, sum.inl '' (e1.next r c)) (λ r, sum.inr '' (e2.next r c)),
+    eps := λ q, sum.cases_on q 
+        (λ r, if (r = e1.term) 
+            then (sum.inl '' (e1.eps r) ∪ {sum.inr e2.start})
+            else (sum.inl '' (e1.eps r))) 
+        (λ r, sum.inr '' e2.eps r) 
 }
 
 lemma epsnfa_append_no_right_left {e1 : epsNFA S Q1} {e2 : epsNFA S Q2} {a : Q2} {b : Q1} {w : list S} 
-    : ¬ go (epsnfa_append e1 e2) (U.right a) w (U.left b) :=
+    : ¬ go (epsnfa_append e1 e2) (sum.inr a) w (sum.inl b) :=
 begin
     intro gorl,
-    generalize ha : (U.right : Q2 → U Q1 Q2) a = ua,
-    generalize hb : (U.left : Q1 → U Q1 Q2) b = ub,
+    generalize ha : (sum.inr a : sum Q1 Q2) = ua,
+    generalize hb : (sum.inl b : sum Q1 Q2) = ub,
     rw [ha, hb] at gorl,
     induction gorl generalizing a, {
         -- base case
         subst hb,
-        contradiction,
+        injection ha,
     },
     all_goals { -- works for both `step` and `eps` cases
         substs ha hb,
@@ -58,7 +45,7 @@ end
 
 lemma epsnfa_append_go_left {e1 : epsNFA S Q1} {e2 : epsNFA S Q2} 
     {a b : Q1} {w : list S} 
-    :  go e1 a w b ↔ go (epsnfa_append e1 e2) (U.left a) w (U.left b) :=
+    :  go e1 a w b ↔ go (epsnfa_append e1 e2) (sum.inl a) w (sum.inl b) :=
 begin
     split, {
         intro goleft,
@@ -69,15 +56,15 @@ begin
             dsimp [epsnfa_append],
             simpa only [mem_image, exists_eq_right], 
         }, {
-            refine go.eps _ _ goleft_ih,
+            refine go.eps _ goleft_ih,
             dsimp [epsnfa_append],
             by_cases goleft_q = e1.term;
             simpa [h] using goleft_h,
         }
     }, {
         intro goappend,
-        generalize ha : (U.left : Q1 → U Q1 Q2) a = ua,
-        generalize hb : (U.left : Q1 → U Q1 Q2) b = ub,
+        generalize ha : (sum.inl a : sum Q1 Q2) = ua,
+        generalize hb : (sum.inl b : sum Q1 Q2) = ub,
         rw [ha, hb] at goappend,
         induction goappend generalizing a, {
             subst hb,
@@ -98,7 +85,7 @@ begin
         case epsnfa.go.eps : _ _ _ _ _ goappend_a {
             substs ha hb,
             cases goappend_n, {
-                refine go.eps _ _ (@goappend_ih rfl goappend_n rfl),
+                refine go.eps _ (@goappend_ih rfl goappend_n rfl),
                 simp only [epsnfa_append, dite_eq_ite, union_singleton] at goappend_h,
                 split_ifs at goappend_h, {
                     subst h,
@@ -117,7 +104,7 @@ end
 
 lemma epsnfa_append_go_right {e1 : epsNFA S Q1} {e2 : epsNFA S Q2} 
     {a b : Q2} {w : list S}
-    : go e2 a w b ↔ go (epsnfa_append e1 e2) (U.right a) w (U.right b) :=
+    : go e2 a w b ↔ go (epsnfa_append e1 e2) (sum.inr a) w (sum.inr b) :=
 begin
     split, {
         intro goright,
@@ -128,14 +115,14 @@ begin
             dsimp [epsnfa_append],
             simpa only [mem_image, exists_eq_right], 
         }, {
-            refine go.eps _ _ goright_ih,
+            refine go.eps _ goright_ih,
             dsimp [epsnfa_append],
             simpa only [mem_image, exists_eq_right],
         }
     }, {
         intro goappend,
-        generalize ha : (U.right : Q2 → U Q1 Q2) a = ua,
-        generalize hb : (U.right : Q2 → U Q1 Q2) b = ub,
+        generalize ha : (sum.inr a : sum Q1 Q2) = ua,
+        generalize hb : (sum.inr b : sum Q1 Q2) = ub,
         rw [ha, hb] at goappend,
         induction goappend generalizing a, {
             subst hb,
@@ -158,7 +145,7 @@ begin
                 exfalso,
                 simpa [epsnfa_append] using goappend_h,
             }, {
-                refine go.eps _ _ (@goappend_ih rfl goappend_n rfl),
+                refine go.eps _ (@goappend_ih rfl goappend_n rfl),
                 simpa [epsnfa_append] using goappend_h,
             }
         }
@@ -167,12 +154,12 @@ end
 
 
 lemma epsnfa_append_split {e1 : epsNFA S Q1} {e2 : epsNFA S Q2} {a : Q1} {b : Q2} {w : list S} :
-    go (epsnfa_append e1 e2) (U.left a) w (U.right b) →
+    go (epsnfa_append e1 e2) (sum.inl a) w (sum.inr b) →
     ∃ {left right : list S}, left ++ right = w ∧ go e1 a left e1.term ∧ go e2 e2.start right b :=
 begin
     intro goappend,
-    generalize ha : (U.left : Q1 → U Q1 Q2) a = ua,
-    generalize hb : (U.right : Q2 → U Q1 Q2) b = ub,
+    generalize ha : (sum.inl a : sum Q1 Q2) = ua,
+    generalize hb : (sum.inr b : sum Q1 Q2) = ub,
     rw [ha, hb] at goappend,
     induction goappend generalizing a, {
         subst hb,
@@ -184,7 +171,7 @@ begin
             -- somehow make an induction step
             specialize @goappend_ih rfl goappend_n rfl, 
             rcases goappend_ih with ⟨left, right, rfl, goleft, goright⟩,
-            use [goappend_head :: left, right, list.cons_append _ _ _],
+            use [goappend_hd :: left, right, list.cons_append _ _ _],
             split, {
                 refine go.step _ goleft,
                 simpa [epsnfa_append] using goappend_h,
@@ -205,7 +192,7 @@ begin
             rcases goappend_ih with ⟨left, right, rfl, goleft, goright⟩,
             use [left, right, rfl],
             split, {
-                refine go.eps _ _ goleft,
+                refine go.eps _ goleft,
                 simp [epsnfa_append] at goappend_h,
                 by_cases a = e1.term;
                 simpa [h] using goappend_h,
@@ -214,7 +201,7 @@ begin
             }
         }, {
             -- prev in left, next in right, induction base
-            use [[], goappend_tail, rfl],
+            use [[], goappend_tl, rfl],
             simp only [epsnfa_append, dite_eq_ite, union_singleton] at goappend_h,
             split_ifs at goappend_h, {
                 -- good case, induction base, no contradiction
@@ -244,7 +231,7 @@ begin
         rintro _ ⟨left, right, hleft, hright, rfl⟩,
         dsimp at hleft hright,
         apply epsnfa_go_trans (epsnfa_append_go_left.1 hleft),
-        refine go.eps _ _ (epsnfa_append_go_right.1 hright),
+        refine go.eps _ (epsnfa_append_go_right.1 hright),
         simp only [epsnfa_append, dite_eq_ite, union_singleton],
         simp only [mem_image, if_true, eq_self_iff_true, exists_false, mem_insert_iff, or_false, and_false],
     }
@@ -254,8 +241,7 @@ theorem append_is_epsnfa {L M : set (list S)}: epsnfa_lang L → epsnfa_lang M �
 begin
     rintro ⟨Ql, fQl, dQl, enl, rfl⟩ ⟨Qm, fQm, dQm, enm, rfl⟩,
     resetI,
-    existsi [U Ql Qm, _, _, epsnfa_append enl enm],   
-    exact epsnfa_append_correct enl enm,
+    refine ⟨_, _, _, epsnfa_append enl enm, epsnfa_append_correct enl enm⟩,
 end
 
 end epsnfa.append

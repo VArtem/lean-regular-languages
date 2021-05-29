@@ -3,7 +3,6 @@ import data.fintype.basic
 import data.finset.basic
 import tactic
 
-namespace dfa
 open set list
 
 variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
@@ -12,6 +11,8 @@ structure DFA (S : Type) (Q : Type) [fintype S] [fintype Q] [decidable_eq Q] :=
     (start : Q) -- starting state
     (term : set Q) -- terminal states
     (next : Q → S → Q) -- transitions
+
+namespace DFA
 
 def go (dfa : DFA S Q) : Q → list S → Q
 | q []             := q
@@ -83,7 +84,7 @@ end
     : w ∈ L ↔ dfa_accepts_word dfa w := 
 begin
     subst autl,
-    split; simp,
+    refl,
 end
 
 def compl_dfa (dfa : DFA S Q) : DFA S Q := {
@@ -95,26 +96,10 @@ def compl_dfa (dfa : DFA S Q) : DFA S Q := {
 lemma lang_of_compl_dfa_is_compl_of_lang (dfa : DFA S Q) : 
     (lang_of_dfa dfa)ᶜ = lang_of_dfa (compl_dfa dfa) :=
 begin
-    apply subset.antisymm, {
-        rw [compl_subset_iff_union, eq_univ_iff_forall],
-        intro x,
-        by_cases h : go dfa dfa.start x ∈ dfa.term, {
-            left,
-            simpa only using h,
-        }, {
-            right,
-            dsimp,
-            rw ← eq_next_goes_to_iff dfa (compl_dfa dfa) rfl,
-            simpa only,
-        }
-    }, {
-        rw [subset_compl_iff_disjoint, eq_empty_iff_forall_not_mem],
-        rintro x ⟨x_compl, x_dfa⟩,
-        dsimp [lang_of_dfa] at *,
-        rw eq_next_goes_to_iff dfa (compl_dfa dfa) rfl at x_dfa,
-        dsimp [compl_dfa] at *,
-        exact x_compl x_dfa,
-    }, 
+    ext,
+    dsimp,
+    rw eq_next_goes_to_iff (compl_dfa dfa) dfa rfl,
+    simp [compl_dfa],
 end
 
 theorem compl_is_dfa {L : set (list S)} : dfa_lang L → dfa_lang Lᶜ :=
@@ -122,7 +107,7 @@ begin
     rintro ⟨Q, fQ, dQ, dfa, rfl⟩,
     resetI,
     use [Q, fQ, dQ, compl_dfa dfa],
-    rw lang_of_compl_dfa_is_compl_of_lang,
+    exact lang_of_compl_dfa_is_compl_of_lang _,
 end
 
 section inter_dfa
@@ -183,4 +168,4 @@ end
 
 end inter_dfa
     
-end dfa
+end DFA

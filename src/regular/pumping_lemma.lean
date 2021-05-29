@@ -3,7 +3,7 @@ import regular.regex
 import data.list.basic
 import regular.list_lemmas
 
-open dfa list
+open DFA list
 
 namespace pumping
 
@@ -30,7 +30,7 @@ begin
     wlog x_lt_y : x ≤ y,
     replace x_lt_y := nat.lt_of_le_and_ne x_lt_y x_ne_y,
     
-    use [take x (take y w), drop x (take y w), drop y w, go d st (take x w)],
+    use [take x $ take y w, drop x $ take y w, drop y w, go d st (take x w)],
     simp only [true_and, take_append_drop, eq_self_iff_true], 
     refine ⟨_, _, _, _⟩, {
         rwa [length_take, min_eq_left (le_trans hy hlen)],

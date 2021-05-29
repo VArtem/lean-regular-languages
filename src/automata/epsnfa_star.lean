@@ -4,38 +4,22 @@ import automata.epsnfa
 import languages.basic
 import languages.star
 
-open set epsnfa languages
+open set epsnfa languages option
 
 namespace epsnfa.star
 
 variables {S Q : Type} [fintype S] [fintype Q] [decidable_eq Q]
 
-@[derive fintype, derive decidable_eq]
-inductive U (Q : Type) [fintype Q] : Type
-| start : U
-| inside (q : Q) : U
-
-def epsnfa_star (e : epsNFA S Q) : epsNFA S (U Q) := {
-    start := U.start,
-    term := U.start,
-    next := λ q c, begin
-        cases q, 
-        { exact ∅ },
-        { exact U.inside '' (e.next q c) }, 
-    end,
-    eps := λ q, begin
-        cases q, {
-            exact {U.inside e.start},
-        }, {
-            by_cases q = e.term,
-            exact U.inside '' e.eps q ∪ {U.start}, 
-            exact U.inside '' e.eps q,
-        },
-    end
+def epsnfa_star (e : epsNFA S Q) : epsNFA S (option Q) := {
+    start := none,
+    term := none,
+    next := λ q c, option.rec_on q ∅ (λ q', some '' (e.next q' c)),
+    eps := λ q, option.rec_on q {some e.start} (λ r, 
+        if (q = e.term) then (some '' e.eps r ∪ {none}) else (some '' e.eps r))
 }
 
 lemma epsnfa_star_go_inside {e : epsNFA S Q} {a b : Q} {w : list S} 
-    :  go e a w b → go (epsnfa_star e) (U.inside a) w (U.inside b) :=
+    :  go e a w b → go (epsnfa_star e) (some a) w (some b) :=
 begin
     intro go_inside,
     induction go_inside, {
@@ -45,10 +29,11 @@ begin
         dsimp [epsnfa_star],
         simpa only [mem_image, exists_eq_right], 
     }, {
-        refine go.eps _ _ go_inside_ih,
-        dsimp [epsnfa_star],            
-        by_cases go_inside_q = e.term;
-        simpa [h] using go_inside_h,
+        refine go.eps _ go_inside_ih,
+        dsimp [epsnfa_star],
+        split_ifs,
+        { simpa using go_inside_h, },
+        { simpa using go_inside_h, },
     }    
 end 
 
@@ -63,25 +48,25 @@ begin
         rintro w ⟨left, right, hleft, hright, rfl⟩,
         replace hright := n_ih hright,
         refine epsnfa_go_trans _ hright,
-
-        refine go.eps (U.inside e.start) _ _, {
-            simp [epsnfa_star],
-        }, {
-            convert epsnfa_go_trans (epsnfa_star_go_inside hleft) _,
-            rw list.append_nil,
-            refine go.eps _ _ go.finish,
-            simp only [epsnfa_star, dite_eq_ite, union_singleton],
-            simp only [mem_image, if_true, eq_self_iff_true, exists_false, mem_insert_iff, or_false, and_false],
-        }
-    }
+        
+        convert go.eps _ (epsnfa_go_trans (epsnfa_star_go_inside hleft) (go.eps _ go.finish)), 
+        all_goals {
+            simp only [list.append_nil, epsnfa_star, set.mem_singleton_iff],
+        },
+        split_ifs, 
+        { simp, }, 
+        { simpa using h, },
+    }   
 end
 
-lemma epsnfa_star_list_join {e : epsNFA S Q} {w : list S} {u : U Q}
-    : go (epsnfa_star e) u w U.start 
-        → ∃ pref l, (pref ++ list.join l = w) ∧ (pref = [] ∧ u = U.start ∨ ∃ (q : Q), u = U.inside q ∧ go e q pref e.term) ∧ (∀ x, x ∈ l → x ∈ lang_of_epsnfa e) :=
+lemma epsnfa_star_list_join {e : epsNFA S Q} {w : list S} {u : option Q}
+    : go (epsnfa_star e) u w none 
+        → ∃ pref l, (pref ++ list.join l = w) ∧ 
+            (pref = [] ∧ u = none ∨ ∃ (q : Q), u = some q ∧ go e q pref e.term) 
+            ∧ (∀ x, x ∈ l → x ∈ lang_of_epsnfa e) :=
 begin
     intro go_star,
-    generalize hst : (U.start : U Q) = fi,
+    generalize hst : (none : option Q) = fi,
     rw hst at go_star,
     induction go_star,
     case epsnfa.go.finish : {
@@ -130,9 +115,9 @@ begin
             use [pref, l],
             simp, 
             rcases hpref with ⟨rfl, rfl⟩ | ⟨qnxt, rfl, qnxt_go⟩, {
-                simp only [epsnfa_star, dite_eq_ite, union_singleton] at hnxt,
+                simp only [epsnfa_star, union_singleton] at hnxt,
                 split_ifs at hnxt, {
-                    subst h,
+                    cases h, cases h, 
                     exact ⟨go.finish, λ x xl, hlist x xl⟩,
                 }, {
                     simpa only [mem_image, exists_false, and_false] using hnxt,

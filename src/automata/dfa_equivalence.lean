@@ -111,16 +111,6 @@ end
 
 def all_reachable (d : dfa S) := ∀ q : d.Q, ∃ w, go d.start w = q
 
-lemma min_dfa_all_reachable {d : dfa S} : d.all_reachable → (min_dfa d).all_reachable :=
-begin
-  rintro hd q,
-  apply quotient.induction_on q, clear q,
-  intro q,
-  rcases hd q with ⟨w, rfl⟩,
-  use w,
-  simp,
-end
-
 end dfa
 
 namespace right_ctx 
@@ -131,34 +121,15 @@ def r (L : set (list S)) (u v : list S) := ∀ w, (u ++ w) ∈ L ↔ (v ++ w) �
 
 @[simp] lemma r_def {u v} : (r L) u v ↔ ∀ w, (u ++ w) ∈ L ↔ (v ++ w) ∈ L := iff.rfl
 
-def r_refl : reflexive (r L) :=
-begin
-  intro u,
-  simp,
-end 
+def r_refl : reflexive (r L) := λ a, by simp
 
-def r_symm : symmetric (r L) := 
-begin
-  intros u v h w,
-  simp [h w],
-end
+def r_symm : symmetric (r L) := λ a b hab w, by simp [hab w]
 
-def r_trans : transitive (r L) :=
-begin
-  intros u v w huv hwv x,
-  simp [huv x, hwv x],
-end
+def r_trans : transitive (r L) := λ a b c hab hbc w, by simp [hab w, hbc w]
 
 instance setoid : setoid (list S) := ⟨r L, r_refl, r_symm, r_trans⟩
 
-instance has_equiv : has_equiv (list S) := ⟨r L⟩
-
-#check @right_ctx.setoid
-
 def right_ctx (L : set (list S)) := quotient (@right_ctx.setoid S _ L)
-
-#reduce (setoid.r : list S → list S → Prop)
-#reduce (has_equiv.equiv : list S → list S → Prop)
 
 -- @[simp] lemma right_ctx_equiv (u v : list S) :
 --   u ≈ v ↔ ∀ w, (u ++ w) ∈ L ↔ (v ++ w) ∈ L := iff.rfl
@@ -178,36 +149,36 @@ begin
       rintro a b rab,
       simp at rab,
       simp [has_equiv.equiv, setoid.r, r],
-      intro w,
-      specialize rab w,
       have ha := classical.some_spec (hd a),
       have hb := classical.some_spec (hd b),
-      rw [ha, hb],
-      exact rab,
+      simpa [ha, hb] using rab,
     end,
-    inv_fun := quotient.lift (λ w, go (min_dfa d).start w)
+    inv_fun := quotient.map (λ w, go d.start w)
     begin
       rintro u v ruv,
-      simp at ⊢ ruv,
       simpa [has_equiv.equiv, setoid.r] using ruv,
     end,
     left_inv := λ q,  
     begin
       apply quotient.induction_on q, clear q, intro q,
-      simp,
-      intro w,
       have hq := classical.some_spec (hd q),
-      rw hq,      
+      simp [hq],
     end,
     right_inv := λ w,
     begin
       apply quotient.induction_on w, clear w, intro w,
-      simp [has_equiv.equiv, setoid.r],
-      intro x,
       have hw := classical.some_spec (hd (go d.start w)),
-      rw hw,
+      simp [has_equiv.equiv, setoid.r, hw],
     end
   },
+end
+
+theorem min_dfas_equiv {d d' : dfa S} (hd : d.all_reachable) (hd' : d'.all_reachable) (hl : d.language = d'.language) : (min_dfa d).Q ≃ (min_dfa d').Q :=
+begin
+  have e1 := myhill_nerode_equiv hd,
+  have e2 := (myhill_nerode_equiv hd').symm,
+  rw hl at e1,
+  exact equiv.trans e1 e2,
 end
 
 end myhill_nerode
